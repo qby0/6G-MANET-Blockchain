@@ -1,0 +1,8 @@
+numpy>=1.20.0
+matplotlib>=3.3.0
+networkx>=2.5.0
+pandas>=1.2.0
+python-dotenv>=1.0.0
+# NS-3 устанавливается отдельно согласно инструкции на https://www.nsnam.org/
+# BlockSim может быть установлен из GitHub: https://github.com/BlockScience/BlockSim
+# git+https://github.com/BlockScience/BlockSim.git
