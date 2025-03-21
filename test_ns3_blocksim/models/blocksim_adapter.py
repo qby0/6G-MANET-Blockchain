@@ -36,8 +36,7 @@ class BlockSimAdapter:
             with open(config_path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
                 logger.info(
-                    "Конфигурация загружена из %(config_path)s",
-                    {config_path: config_path},
+                    "Конфигурация загружена из %s", config_path,
                 )
 
         # BlockSim должен быть установлен
@@ -47,7 +46,7 @@ class BlockSimAdapter:
             # from blocksim.models.consensus import ProofOfAuthority
             logger.info("Проверка импорта модулей BlockSim выполнена")
         except ImportError as e:
-            logger.warning("Не удалось импортировать модули BlockSim: %(e)s", {e: e})
+            logger.warning("Не удалось импортировать модули BlockSim: %s", e)
             logger.warning("Будет использоваться эмуляция BlockSim")
 
         # Внутренние переменные для отслеживания состояния симуляции
@@ -98,7 +97,7 @@ class BlockSimAdapter:
             return True
 
         except Exception as e:
-            logger.error("Ошибка инициализации блокчейна: %(e)s", {e: e})
+            logger.error("Ошибка инициализации блокчейна: %s", e)
             return False
 
     def register_node(
@@ -116,7 +115,7 @@ class BlockSimAdapter:
             bool: True, если узел успешно зарегистрирован, иначе False
         """
         if node_id in self.nodes:
-            logger.warning("Узел %(node_id)s уже зарегистрирован", {node_id: node_id})
+            logger.warning("Узел %s уже зарегистрирован", node_id)
             return False
 
         # Создаем запись узла
@@ -131,8 +130,7 @@ class BlockSimAdapter:
         }
 
         logger.info(
-            "Узел %(node_id)s зарегистрирован как %(node_type)s",
-            {node_id: node_id, node_type: node_type},
+            "Узел %s зарегистрирован как %s", (node_id, node_type),
         )
         return True
 
@@ -148,15 +146,14 @@ class BlockSimAdapter:
             bool: True, если статус успешно обновлен, иначе False
         """
         if node_id not in self.nodes:
-            logger.error("Узел %(node_id)s не найден", {node_id: node_id})
+            logger.error("Узел %s не найден", node_id)
             return False
 
         self.nodes[node_id]["is_active"] = is_active
 
         status_text = "активен" if is_active else "неактивен"
         logger.info(
-            "Статус узла %(node_id)s обновлен: %(status_text)s",
-            {node_id: node_id, status_text: status_text},
+            "Статус узла %s обновлен: %s", (node_id, status_text),
         )
         return True
 
@@ -181,13 +178,13 @@ class BlockSimAdapter:
         """
         if source_id not in self.nodes:
             logger.error(
-                "Узел-отправитель %(source_id)s не найден", {source_id: source_id}
+                "Узел-отправитель %s не найден", source_id
             )
             return ""
 
         if target_id not in self.nodes:
             logger.error(
-                "Узел-получатель %(target_id)s не найден", {target_id: target_id}
+                "Узел-получатель %s не найден", target_id
             )
             return ""
 
@@ -213,8 +210,7 @@ class BlockSimAdapter:
         self.transactions.append(transaction)
 
         logger.info(
-            "Транзакция %(tx_id)s создана между %(source_id)s и %(target_id)s",
-            {tx_id: tx_id, source_id: source_id, target_id: target_id},
+            "Транзакция %s создана между %s и %s", (tx_id, source_id, target_id),
         )
         return tx_id
 
@@ -241,7 +237,7 @@ class BlockSimAdapter:
 
                 count += 1
 
-        logger.info("Обработано %(count)s транзакций", {count: count})
+        logger.info("Обработано %s транзакций", count)
         return count
 
     def create_block(self) -> Dict[str, Any]:
@@ -321,8 +317,7 @@ class BlockSimAdapter:
         self.current_time += time_delta
 
         logger.debug(
-            "Время симуляции продвинуто с %(old_time)s до %(self.current_time)s",
-            {old_time: old_time, self.current_time: self.current_time},
+            "Время симуляции продвинуто с %s до %s", (old_time, self.current_time),
         )
 
         # Проверяем, нужно ли создавать новые блоки
@@ -397,10 +392,10 @@ class BlockSimAdapter:
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_detailed_state(), f, indent=2)
-            logger.info("Состояние сохранено в %(filepath)s", {filepath: filepath})
+            logger.info("Состояние сохранено в %s", filepath)
             return True
         except Exception as e:
-            logger.error("Ошибка при сохранении состояния: %(e)s", {e: e})
+            logger.error("Ошибка при сохранении состояния: %s", e)
             return False
 
     def load_state(self, filepath: str) -> bool:
@@ -423,10 +418,10 @@ class BlockSimAdapter:
             self.blocks = state.get("blocks", [])
             self.transactions = state.get("transactions", [])
 
-            logger.info("Состояние загружено из %(filepath)s", {filepath: filepath})
+            logger.info("Состояние загружено из %s", filepath)
             return True
         except Exception as e:
-            logger.error("Ошибка при загрузке состояния: %(e)s", {e: e})
+            logger.error("Ошибка при загрузке состояния: %s", e)
             return False
 
 

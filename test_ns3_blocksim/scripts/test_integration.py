@@ -38,21 +38,20 @@ def main():
     # Print all paths
     logger.info("All configured paths:")
     for name, path in all_paths.items():
-        logger.info("%(name)s: %(path)s", {name: name, path: path})
+        logger.info("%s: %(path)s", name)
         if not os.path.exists(path):
             logger.warning(
-                "WARNING: Path %(name)s does not exist: %(path)s",
-                {name: name, path: path},
+                "WARNING: Path %s does not exist: %s", (name, path),
             )
 
     # Test NS-3 path
     ns3_path = get_ns3_dir()
     if ns3_path:
-        logger.info("NS-3 path found: %(ns3_path)s", {ns3_path: ns3_path})
+        logger.info("NS-3 path found: %s", ns3_path)
 
         # Check if NS-3 path exists
         if os.path.exists(ns3_path):
-            logger.info("NS-3 directory exists at: %(ns3_path)s", {ns3_path: ns3_path})
+            logger.info("NS-3 directory exists at: %s", ns3_path)
 
             # Test NS3Adapter with the path
             try:
@@ -63,7 +62,7 @@ def main():
                 # Get NS-3 version
                 logger.info("Checking NS-3 version...")
                 version = adapter.get_ns3_version()
-                logger.info("NS-3 version: %(version)s", {version: version})
+                logger.info("NS-3 version: %s", version)
 
                 # Check if NS-3 is properly configured
                 logger.info("Checking if NS-3 is properly configured...")
@@ -78,12 +77,12 @@ def main():
                 logger.info("NS3Adapter test completed!")
 
             except Exception as e:
-                logger.error("Error initializing NS3Adapter: %(e)s", {e: e})
+                logger.error("Error initializing NS3Adapter: %s", e)
                 return 1
 
         else:
             logger.error(
-                "NS-3 directory does not exist at: %(ns3_path)s", {ns3_path: ns3_path}
+                "NS-3 directory does not exist at: %s", ns3_path
             )
             logger.info("Please update the NS3_DIR path in env_paths.json")
             return 1
@@ -97,14 +96,13 @@ def main():
     # Test config path
     config_dir = get_config_dir()
     if config_dir:
-        logger.info("Config directory found: %(config_dir)s", {config_dir: config_dir})
+        logger.info("Config directory found: %s", config_dir)
 
         # Check if integrated.json exists
         integrated_config = os.path.join(config_dir, "integrated.json")
         if os.path.exists(integrated_config):
             logger.info(
-                "Integrated config file found: %(integrated_config)s",
-                {integrated_config: integrated_config},
+                "Integrated config file found: %s", integrated_config,
             )
 
             # Read the config file
@@ -148,11 +146,10 @@ def main():
                     logger.warning("Missing 'blockchain' section in config")
 
             except Exception as e:
-                logger.error("Error reading integrated.json: %(e)s", {e: e})
+                logger.error("Error reading integrated.json: %s", e)
         else:
             logger.warning(
-                "Integrated config file not found: %(integrated_config)s",
-                {integrated_config: integrated_config},
+                "Integrated config file not found: %s", integrated_config,
             )
     else:
         logger.warning("Config directory not found")

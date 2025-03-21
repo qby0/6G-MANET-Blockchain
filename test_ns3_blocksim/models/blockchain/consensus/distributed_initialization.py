@@ -38,8 +38,8 @@ class DistributedInitialization:
             node.update_blockchain_status(True, 1)  # Genesis block only
 
         self.logger.info(
-            "Created initial blockchain for %(len(nodes))s nodes",
-            {len(nodes): len(nodes)},
+            "Created initial blockchain for %s nodes",
+            len(nodes),
         )
         return node_blockchains
 
@@ -86,8 +86,8 @@ class DistributedInitialization:
         # Propagate for a fixed number of rounds
         for round_num in range(max_rounds):
             self.logger.info(
-                "Propagation round %(round_num+1)s/%(max_rounds)s",
-                {round_num + 1: round_num + 1, max_rounds: max_rounds},
+                "Propagation round %s/%s",
+                round_num + 1, max_rounds,
             )
 
             # Make a copy of the current state to avoid immediate updates
@@ -110,8 +110,8 @@ class DistributedInitialization:
             # Check if we have reached convergence
             if self._check_convergence(node_genesis_blocks, nodes):
                 self.logger.info(
-                    "Convergence reached after %(round_num+1)s rounds",
-                    {round_num + 1: round_num + 1},
+                    "Convergence reached after %s rounds",
+                    round_num + 1,
                 )
                 break
 
@@ -186,9 +186,9 @@ class DistributedInitialization:
                 break
 
         if not winning_blockchain:
-            self.logger.error(
-                "No blockchain found with winning hash %(winning_hash)s",
-                {winning_hash: winning_hash},
+            self.logger.warning(
+                "No blockchain found with winning hash %s",
+                winning_hash,
             )
             return
 

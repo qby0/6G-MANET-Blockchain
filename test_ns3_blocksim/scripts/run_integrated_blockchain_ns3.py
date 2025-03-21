@@ -75,8 +75,7 @@ def get_ns3_path(args):
     # First try command line argument
     if args.ns3_path and os.path.exists(args.ns3_path):
         logger.info(
-            "Using NS-3 path from command line: %(args.ns3_path)s",
-            {args.ns3_path: args.ns3_path},
+            "Using NS-3 path from command line: %s", args.ns3_path,
         )
         return args.ns3_path
 
@@ -84,7 +83,7 @@ def get_ns3_path(args):
     ns3_path = get_ns3_dir()
     if ns3_path and os.path.exists(ns3_path):
         logger.info(
-            "Using NS-3 path from paths_manager: %(ns3_path)s", {ns3_path: ns3_path}
+            "Using NS-3 path from paths_manager: %s", ns3_path
         )
         return ns3_path
 
@@ -92,8 +91,7 @@ def get_ns3_path(args):
     ns3_path = os.environ.get("NS3_DIR")
     if ns3_path and os.path.exists(ns3_path):
         logger.info(
-            "Using NS-3 path from environment variable: %(ns3_path)s",
-            {ns3_path: ns3_path},
+            "Using NS-3 path from environment variable: %s", ns3_path,
         )
         return ns3_path
 
@@ -115,7 +113,7 @@ def load_config(args):
         config_path = os.path.join(get_config_dir(), "integrated.json")
 
     logger.info(
-        "Loading configuration from: %(config_path)s", {config_path: config_path}
+        "Loading configuration from: %s", config_path
     )
 
     if os.path.exists(config_path):
@@ -123,7 +121,7 @@ def load_config(args):
             config = json.load(f)
     else:
         logger.warning(
-            "Configuration file not found: %(config_path)s", {config_path: config_path}
+            "Configuration file not found: %s", config_path
         )
         logger.info("Using default configuration with command line overrides")
 
@@ -179,7 +177,7 @@ def run_simulation(config_path, ns3_path):
     # Log configuration details
     if config_path:
         logger.info(
-            "Using configuration from: %(config_path)s", {config_path: config_path}
+            "Using configuration from: %s", config_path
         )
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -189,11 +187,11 @@ def run_simulation(config_path, ns3_path):
                     {json.dumps(config, indent=2): json.dumps(config, indent=2)},
                 )
         except Exception as e:
-            logger.warning("Could not read config file: %(e)s", {e: e})
+            logger.warning("Could not read config file: %s", e)
     else:
         logger.info("Using default configuration")
 
-    logger.info("NS-3 path: %(ns3_path)s", {ns3_path: ns3_path})
+    logger.info("NS-3 path: %s", ns3_path)
 
     # Create simulation adapter
     start_time = time.time()
@@ -259,7 +257,7 @@ def run_simulation(config_path, ns3_path):
                 indent=4,
             )
 
-        logger.info("Summary saved to: %(summary_file)s", {summary_file: summary_file})
+        logger.info("Summary saved to: %s", summary_file)
 
         return results
 
@@ -300,8 +298,7 @@ def main():
             json.dump(results, f, indent=2)
 
         logger.info(
-            "Simulation completed. Results saved to: %(summary_file)s",
-            {summary_file: summary_file},
+            "Simulation completed. Results saved to: %s", summary_file,
         )
         return 0
 

@@ -110,7 +110,7 @@ def load_config(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        logger.error("Error reading configuration file: %(e)s", {e: e})
+        logger.error("Error reading configuration file: %s", e)
         return {}
 
 
@@ -201,16 +201,13 @@ def create_network_topology(interface, config, args):
             nodes_outside_coverage += 1
 
     logger.info(
-        "Created network topology with 1 base station and %(node_count)s nodes",
-        {node_count: node_count},
+        "Created network topology with 1 base station and %s nodes", node_count,
     )
     logger.info(
-        "Initial nodes in coverage: %(nodes_in_coverage)s",
-        {nodes_in_coverage: nodes_in_coverage},
+        "Initial nodes in coverage: %s", nodes_in_coverage,
     )
     logger.info(
-        "Initial nodes outside coverage: %(nodes_outside_coverage)s",
-        {nodes_outside_coverage: nodes_outside_coverage},
+        "Initial nodes outside coverage: %s", nodes_outside_coverage,
     )
 
     # Create initial connections based on distance
@@ -303,7 +300,7 @@ def run_simulation(args, config):
         ns3_adapter.compile_ns3_script(script_name)
         logger.info("NS-3 adapter initialized")
     except Exception as e:
-        logger.warning("Failed to initialize NS-3 adapter: %(e)s", {e: e})
+        logger.warning("Failed to initialize NS-3 adapter: %s", e)
         logger.warning("NS-3 emulation will be used")
         ns3_adapter = None
 
@@ -423,8 +420,7 @@ def run_simulation(args, config):
             if was_in_coverage != is_in_coverage_now:
                 status = "entered coverage" if is_in_coverage_now else "left coverage"
                 logger.debug(
-                    "Node %(node_id)s %(status)s at time %(current_time).2f",
-                    {node_id: node_id, status: status, current_time: current_time},
+                    "Node %s %s at time %(current_time).2f", (node_id, status),
                 )
                 coverage_changes.append(
                     {"time": current_time, "node_id": node_id, "status": status}
@@ -547,8 +543,7 @@ def run_simulation(args, config):
                     nodes_outside_coverage += 1
 
             logger.info(
-                "Simulation time: %(current_time).2f/%(total_time)s",
-                {current_time: current_time, total_time: total_time},
+                "Simulation time: %(current_time).2f/%s", total_time,
             )
             logger.info(
                 f"Nodes in coverage: {nodes_in_coverage}, outside: {nodes_outside_coverage}"
@@ -677,8 +672,7 @@ def main():
 
     if results:
         logger.info(
-            "Simulation results saved to %(args.output_dir)s",
-            {args.output_dir: args.output_dir},
+            "Simulation results saved to %s", args.output_dir,
         )
         logger.info(
             "Simulation results timestamp: %(results['timestamp'])s",

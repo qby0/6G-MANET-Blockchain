@@ -107,7 +107,7 @@ def create_nodes(config, blockchain_manager):
 
         nodes.append(node_id)
 
-    logger.info("Created %(len(nodes))s nodes", {len(nodes): len(nodes)})
+    logger.info("Created %s nodes", len(nodes))
     return nodes
 
 
@@ -295,7 +295,7 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
     if ns3_path:
         try:
             logger.info(
-                "Initializing NS3Adapter with path: %(ns3_path)s", {ns3_path: ns3_path}
+                "Initializing NS3Adapter with path: %s", ns3_path
             )
             ns3_adapter = NS3Adapter(
                 config_file=os.path.join(get_config_dir(), "distributed.json"),
@@ -303,7 +303,7 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
             )
             logger.info("NS3Adapter initialized successfully")
         except Exception as e:
-            logger.error("Error initializing NS3Adapter: %(e)s", {e: e})
+            logger.error("Error initializing NS3Adapter: %s", str(e))
             logger.warning("Continuing simulation without NS-3 integration")
 
     # Create blockchain manager
@@ -352,8 +352,8 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
     block_count = 0
 
     logger.info(
-        "Running simulation for %(simulation_time)s seconds",
-        {simulation_time: simulation_time},
+        "Running simulation for %s seconds",
+        simulation_time,
     )
 
     simulation_start = time.time()
@@ -397,9 +397,7 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
                 f"Simulation progress: {progress:.1f}% (Time: {current_time:.1f}s, "
                 f"Transactions: {transaction_count}, Blocks: {block_count})"
             )
-            logger.info(
-                "Estimated time remaining: %(remaining).1fs", {remaining: remaining}
-            )
+            logger.info("Estimated time remaining: %.1fs", remaining)
 
         # Increment time
         current_time += time_step
@@ -420,18 +418,15 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
     simulation_duration = simulation_end - simulation_start
 
     logger.info(
-        "Simulation completed in %(simulation_duration).2f seconds",
-        {simulation_duration: simulation_duration},
+        "Simulation completed in %.2f seconds",
+        simulation_duration,
     )
-    logger.info(
-        "Total transactions: %(transaction_count)s",
-        {transaction_count: transaction_count},
-    )
-    logger.info("Total blocks: %(block_count)s", {block_count: block_count})
+    logger.info("Total transactions: %s", transaction_count)
+    logger.info("Total blocks: %s", block_count)
 
     # Final network status
     status = blockchain_manager.get_network_status()
-    logger.info("Final network status: %(status)s", {status: status})
+    logger.info("Final network status: %s", status)
 
     # Save metrics
     save_metrics(config, metrics)

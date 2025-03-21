@@ -67,8 +67,8 @@ class NS3Adapter:
             )
 
         logger.info(
-            "NS3Adapter initialized with NS-3 path: %(self.ns3_path)s",
-            {self.ns3_path: self.ns3_path},
+            "NS3Adapter initialized with NS-3 path: %s",
+            self.ns3_path,
         )
 
         # Load configuration for blockchain integration if provided
@@ -78,8 +78,8 @@ class NS3Adapter:
             # Use default configuration file from the config directory
             self.config_file = os.path.join(get_config_dir(), "integrated.json")
             self.logger.info(
-                "Using default configuration file: %(self.config_file)s",
-                {self.config_file: self.config_file},
+                "Using default configuration file: %s",
+                self.config_file,
             )
 
         # Load configuration if file exists
@@ -87,13 +87,13 @@ class NS3Adapter:
             with open(self.config_file, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
             self.logger.info(
-                "Configuration loaded from: %(self.config_file)s",
-                {self.config_file: self.config_file},
+                "Configuration loaded from: %s",
+                self.config_file,
             )
         else:
             self.logger.warning(
-                "Configuration file not found: %(self.config_file)s",
-                {self.config_file: self.config_file},
+                "Configuration file not found: %s",
+                self.config_file,
             )
             self.logger.info("Using default configuration")
             self.config = self._get_default_config()
@@ -104,7 +104,7 @@ class NS3Adapter:
         )
         os.makedirs(self.output_dir, exist_ok=True)
         self.logger.info(
-            "Output directory: %(self.output_dir)s", {self.output_dir: self.output_dir}
+            "Output directory: %s", self.output_dir
         )
 
         # Initialize state variables for blockchain integration
@@ -172,10 +172,10 @@ class NS3Adapter:
                 return version_match.group(0)
             return f"Unknown format: {result.stdout.strip()}"
         except subprocess.CalledProcessError as e:
-            logger.error("Error getting NS-3 version: %(e)s", {e: e})
+            logger.error("Error getting NS-3 version: %s", e)
             return f"Error: {e}"
         except Exception as e:
-            logger.error("Unexpected error getting NS-3 version: %(e)s", {e: e})
+            logger.error("Unexpected error getting NS-3 version: %s", e)
             return f"Unexpected error: {e}"
 
     def list_modules(self) -> List[str]:
@@ -205,10 +205,10 @@ class NS3Adapter:
                     modules.append(line)
             return modules
         except subprocess.CalledProcessError as e:
-            logger.error("Error listing NS-3 modules: %(e)s", {e: e})
+            logger.error("Error listing NS-3 modules: %s", e)
             return []
         except Exception as e:
-            logger.error("Unexpected error listing NS-3 modules: %(e)s", {e: e})
+            logger.error("Unexpected error listing NS-3 modules: %s", e)
             return []
 
     def run_simulation(
@@ -244,10 +244,10 @@ class NS3Adapter:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True, result.stdout
         except subprocess.CalledProcessError as e:
-            logger.error("Error running simulation: %(e)s", {e: e})
+            logger.error("Error running simulation: %s", e)
             return False, f"Error: {e.stderr}"
         except Exception as e:
-            logger.error("Unexpected error running simulation: %(e)s", {e: e})
+            logger.error("Unexpected error running simulation: %s", e)
             return False, f"Unexpected error: {e}"
 
     def setup_ns3_script(self) -> str:
@@ -349,7 +349,7 @@ class NS3Adapter:
             json.dump(results, f, indent=2)
 
         self.logger.info(
-            "Results saved to: %(output_path)s", {output_path: output_path}
+            "Results saved to: %s", output_path
         )
         return output_path
 

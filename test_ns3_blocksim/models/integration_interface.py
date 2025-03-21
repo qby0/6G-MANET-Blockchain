@@ -42,8 +42,7 @@ class IntegrationInterface:
             with open(config_path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
                 logger.info(
-                    "Конфигурация загружена из %(config_path)s",
-                    {config_path: config_path},
+                    "Конфигурация загружена из %s", config_path,
                 )
 
     def register_node(
@@ -66,7 +65,7 @@ class IntegrationInterface:
             bool: True, если узел успешно зарегистрирован, иначе False
         """
         if node_id in self.nodes:
-            logger.warning("Узел %(node_id)s уже зарегистрирован", {node_id: node_id})
+            logger.warning("Узел %s уже зарегистрирован", node_id)
             return False
 
         self.nodes[node_id] = {
@@ -79,7 +78,7 @@ class IntegrationInterface:
             "registered_time": self.simulation_time,
         }
 
-        logger.info("Узел %(node_id)s успешно зарегистрирован", {node_id: node_id})
+        logger.info("Узел %s успешно зарегистрирован", node_id)
         return True
 
     def update_node_position(
@@ -96,15 +95,14 @@ class IntegrationInterface:
             bool: True, если позиция успешно обновлена, иначе False
         """
         if node_id not in self.nodes:
-            logger.error("Узел %(node_id)s не найден", {node_id: node_id})
+            logger.error("Узел %s не найден", node_id)
             return False
 
         old_position = self.nodes[node_id]["position"]
         self.nodes[node_id]["position"] = position
 
         logger.debug(
-            "Узел %(node_id)s переместился из %(old_position)s в %(position)s",
-            {node_id: node_id, old_position: old_position, position: position},
+            "Узел %s переместился из %s в %s", (node_id, old_position, old_position),
         )
         return True
 
@@ -125,8 +123,7 @@ class IntegrationInterface:
         """
         if node1_id not in self.nodes or node2_id not in self.nodes:
             logger.error(
-                "Один или оба узла не найдены: %(node1_id)s, %(node2_id)s",
-                {node1_id: node1_id, node2_id: node2_id},
+                "Один или оба узла не найдены: %s, %s", (node1_id, node2_id),
             )
             return False
 
@@ -137,7 +134,7 @@ class IntegrationInterface:
             self.links[connection_id]["quality"] = quality
             self.links[connection_id]["bandwidth"] = bandwidth
             logger.debug(
-                "Соединение %(connection_id)s обновлено", {connection_id: connection_id}
+                "Соединение %s обновлено", connection_id
             )
         else:
             # Создаем новое соединение
@@ -154,8 +151,7 @@ class IntegrationInterface:
             self.nodes[node2_id]["connections"].append(node1_id)
 
             logger.info(
-                "Соединение между узлами %(node1_id)s и %(node2_id)s установлено",
-                {node1_id: node1_id, node2_id: node2_id},
+                "Соединение между узлами %s и %s установлено", (node1_id, node2_id),
             )
 
         return True
@@ -176,21 +172,20 @@ class IntegrationInterface:
         """
         if source_id not in self.nodes:
             logger.error(
-                "Узел-отправитель %(source_id)s не найден", {source_id: source_id}
+                "Узел-отправитель %s не найден", source_id
             )
             return ""
 
         if target_id not in self.nodes:
             logger.error(
-                "Узел-получатель %(target_id)s не найден", {target_id: target_id}
+                "Узел-получатель %s не найден", target_id
             )
             return ""
 
         # Проверяем, есть ли прямое соединение или путь между узлами
         if not self._check_path_exists(source_id, target_id):
             logger.error(
-                "Нет доступного пути между узлами %(source_id)s и %(target_id)s",
-                {source_id: source_id, target_id: target_id},
+                "Нет доступного пути между узлами %s и %s", (source_id, target_id),
             )
             return ""
 
@@ -211,7 +206,7 @@ class IntegrationInterface:
         }
 
         self.transactions.append(transaction)
-        logger.info("Транзакция %(tx_id)s создана и отправлена", {tx_id: tx_id})
+        logger.info("Транзакция %s создана и отправлена", tx_id)
 
         return tx_id
 
@@ -230,7 +225,7 @@ class IntegrationInterface:
                 tx["status"] = "processed"
                 count += 1
 
-        logger.info("Обработано %(count)s транзакций", {count: count})
+        logger.info("Обработано %s транзакций", count)
         return count
 
     def advance_time(self, time_delta: float) -> None:
@@ -242,8 +237,7 @@ class IntegrationInterface:
         """
         self.simulation_time += time_delta
         logger.debug(
-            "Время симуляции продвинуто до %(self.simulation_time)s",
-            {self.simulation_time: self.simulation_time},
+            "Время симуляции продвинуто до %s", self.simulation_time,
         )
 
     def get_network_state(self) -> Dict[str, Any]:
@@ -277,7 +271,7 @@ class IntegrationInterface:
                 try:
                     os.makedirs(directory, exist_ok=True)
                     logger.info(
-                        "Создана директория %(directory)s", {directory: directory}
+                        "Создана директория %s", directory
                     )
                 except PermissionError:
                     logger.error(
@@ -289,8 +283,7 @@ class IntegrationInterface:
                     return False
                 except Exception as e:
                     logger.error(
-                        "Ошибка при создании директории %(directory)s: %(e)s",
-                        {directory: directory, e: e},
+                        "Ошибка при создании директории %s: %s", (directory, e),
                     )
                     return False
 
@@ -307,18 +300,17 @@ class IntegrationInterface:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_network_state(), f, indent=2)
             logger.info(
-                "Состояние симуляции сохранено в %(filepath)s", {filepath: filepath}
+                "Состояние симуляции сохранено в %s", filepath
             )
             return True
         except PermissionError:
             logger.error(
-                "Ошибка прав доступа: невозможно записать в файл %(filepath)s",
-                {filepath: filepath},
+                "Ошибка прав доступа: невозможно записать в файл %s", filepath,
             )
             logger.error("Пожалуйста, проверьте права доступа к файлу и директории")
             return False
         except Exception as e:
-            logger.error("Ошибка при сохранении состояния: %(e)s", {e: e})
+            logger.error("Ошибка при сохранении состояния: %s", e)
             return False
 
     def load_state(self, filepath: str) -> bool:
@@ -335,7 +327,7 @@ class IntegrationInterface:
             # Проверяем существование файла
             if not os.path.exists(filepath):
                 logger.error(
-                    "Файл состояния %(filepath)s не существует", {filepath: filepath}
+                    "Файл состояния %s не существует", filepath
                 )
                 return False
 
@@ -358,23 +350,22 @@ class IntegrationInterface:
             self.simulation_time = state.get("time", 0.0)
 
             logger.info(
-                "Состояние симуляции загружено из %(filepath)s", {filepath: filepath}
+                "Состояние симуляции загружено из %s", filepath
             )
             return True
         except PermissionError:
             logger.error(
-                "Ошибка прав доступа: невозможно прочитать файл %(filepath)s",
-                {filepath: filepath},
+                "Ошибка прав доступа: невозможно прочитать файл %s", filepath,
             )
             logger.error("Пожалуйста, проверьте права доступа к файлу")
             return False
         except json.JSONDecodeError:
             logger.error(
-                "Ошибка декодирования JSON в файле %(filepath)s", {filepath: filepath}
+                "Ошибка декодирования JSON в файле %s", filepath
             )
             return False
         except Exception as e:
-            logger.error("Ошибка при загрузке состояния: %(e)s", {e: e})
+            logger.error("Ошибка при загрузке состояния: %s", e)
             return False
 
     def _check_path_exists(self, source_id: str, target_id: str) -> bool:

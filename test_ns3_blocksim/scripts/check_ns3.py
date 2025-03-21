@@ -33,7 +33,7 @@ def check_ns3_availability(ns3_path):
     # Проверка наличия директории
     if not os.path.isdir(ns3_path):
         logger.error(
-            "NS-3 directory does not exist: %(ns3_path)s", {ns3_path: ns3_path}
+            "NS-3 directory does not exist: %s", ns3_path
         )
         return False
 
@@ -41,23 +41,21 @@ def check_ns3_availability(ns3_path):
     ns3_executable = os.path.join(ns3_path, "ns3")
     if not os.path.exists(ns3_executable):
         logger.error(
-            "NS-3 executable not found: %(ns3_executable)s",
-            {ns3_executable: ns3_executable},
+            "NS-3 executable not found: %s", ns3_executable,
         )
         return False
 
     # Проверка прав на выполнение
     if not os.access(ns3_executable, os.X_OK):
         logger.warning(
-            "NS-3 file exists but is not executable: %(ns3_executable)s",
-            {ns3_executable: ns3_executable},
+            "NS-3 file exists but is not executable: %s", ns3_executable,
         )
         try:
             logger.info("Trying to add execution permissions...")
             os.chmod(ns3_executable, 0o755)  # Добавляем права на выполнение
             logger.info("Execution permissions added successfully")
         except Exception as e:
-            logger.error("Failed to add execution permissions: %(e)s", {e: e})
+            logger.error("Failed to add execution permissions: %s", e)
             return False
 
     # Проверяем версию NS-3 из файла VERSION
@@ -66,7 +64,7 @@ def check_ns3_availability(ns3_path):
         if os.path.exists(version_file):
             with open(version_file, "r", encoding="utf-8") as f:
                 version = f.read().strip()
-            logger.info("Detected NS-3 version: %(version)s", {version: version})
+            logger.info("Detected NS-3 version: %s", version)
         else:
             logger.info("VERSION file not found, continuing checks...")
 
@@ -87,7 +85,7 @@ def check_ns3_availability(ns3_path):
                     f"NS-3 command completed with error: {result.returncode}"
                 )
                 logger.warning(
-                    "Stderr output: %(result.stderr)s", {result.stderr: result.stderr}
+                    "Stderr output: %s", result.stderr
                 )
 
                 # Пробуем другую команду
@@ -106,7 +104,7 @@ def check_ns3_availability(ns3_path):
 
         return True
     except Exception as e:
-        logger.error("Unexpected error while checking NS-3: %(e)s", {e: e})
+        logger.error("Unexpected error while checking NS-3: %s", e)
         return False
 
 
@@ -152,7 +150,7 @@ def check_ns3_modules(ns3_path):
                 f"Command 'show modules' completed with error: {result.returncode}"
             )
             logger.warning(
-                "Stderr output: %(result.stderr)s", {result.stderr: result.stderr}
+                "Stderr output: %s", result.stderr
             )
             return []
 
@@ -174,7 +172,7 @@ def check_ns3_modules(ns3_path):
         )
         return modules
     except Exception as e:
-        logger.error("Unexpected error while checking NS-3 modules: %(e)s", {e: e})
+        logger.error("Unexpected error while checking NS-3 modules: %s", e)
         return []
 
 
@@ -201,7 +199,7 @@ def check_build_status(ns3_path):
             if os.path.isdir(build_dir):
                 build_found = True
                 logger.info(
-                    "Build directory found: %(build_dir)s", {build_dir: build_dir}
+                    "Build directory found: %s", build_dir
                 )
 
                 # Проверяем наличие библиотек
@@ -241,7 +239,7 @@ def check_build_status(ns3_path):
 
         return False
     except Exception as e:
-        logger.error("Error while checking NS-3 build status: %(e)s", {e: e})
+        logger.error("Error while checking NS-3 build status: %s", e)
         return False
 
 
@@ -264,13 +262,13 @@ def check_basic_ns3_functionality(ns3_path):
             )
 
         if os.path.exists(example_path):
-            logger.info("Example found: %(example_path)s", {example_path: example_path})
+            logger.info("Example found: %s", example_path)
             return True
         else:
             logger.warning("Could not find NS-3 examples")
             return False
     except Exception as e:
-        logger.error("Error while checking NS-3 functionality: %(e)s", {e: e})
+        logger.error("Error while checking NS-3 functionality: %s", e)
         return False
 
 
@@ -297,7 +295,7 @@ def find_ns3_path():
     # Проверяем каждый потенциальный путь
     for path in potential_paths:
         if path.exists() and (path / "ns3").exists():
-            logger.info("Automatically found NS-3 path: %(path)s", {path: path})
+            logger.info("Automatically found NS-3 path: %s", path)
             return str(path)
 
     # Проверяем системные пути
@@ -305,7 +303,7 @@ def find_ns3_path():
     if ns3_cmd:
         # Если ns3 найден в системном PATH, определяем его директорию
         ns3_dir = str(Path(ns3_cmd).parent)
-        logger.info("Found NS-3 in system PATH: %(ns3_dir)s", {ns3_dir: ns3_dir})
+        logger.info("Found NS-3 in system PATH: %s", ns3_dir)
         return ns3_dir
 
     return None
@@ -336,7 +334,7 @@ def main():
                 )
                 sys.exit(1)
 
-    logger.info("Checking NS-3 at path: %(ns3_path)s", {ns3_path: ns3_path})
+    logger.info("Checking NS-3 at path: %s", ns3_path)
 
     # Проверка доступности NS-3
     if not check_ns3_availability(ns3_path):
@@ -363,7 +361,7 @@ def main():
         )
         if args.verbose:
             for i, module in enumerate(modules, 1):
-                logger.info("%(i)s. %(module)s", {i: i, module: module})
+                logger.info("%s. %(module)s", i)
         else:
             logger.info(
                 ", ".join(modules[:10]) + (", ..." if len(modules) > 10 else "")

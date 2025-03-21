@@ -108,8 +108,7 @@ def load_config(config_path):
         return {}
     except PermissionError:
         logger.error(
-            "Read permission error: cannot read file %(config_path)s",
-            {config_path: config_path},
+            "Read permission error: cannot read file %s", config_path,
         )
         logger.error("Please check read permissions for the configuration file")
         return {}
@@ -119,7 +118,7 @@ def load_config(config_path):
         )
         return {}
     except Exception as e:
-        logger.error("Unexpected error reading configuration file: %(e)s", {e: e})
+        logger.error("Unexpected error reading configuration file: %s", e)
         return {}
 
 
@@ -220,8 +219,7 @@ def run_simulation(args, config):
         script_name = os.path.basename(script_path).replace(".cc", "")
         if ns3_adapter.compile_ns3_script(script_name):
             logger.info(
-                "Script %(script_name)s successfully compiled",
-                {script_name: script_name},
+                "Script %s successfully compiled", script_name,
             )
         else:
             logger.warning(
@@ -230,7 +228,7 @@ def run_simulation(args, config):
 
         logger.info("NS-3 adapter successfully initialized")
     except Exception as e:
-        logger.warning("Failed to initialize NS-3 adapter: %(e)s", {e: e})
+        logger.warning("Failed to initialize NS-3 adapter: %s", e)
         logger.warning("NS-3 emulation will be used")
         ns3_adapter = None
 
@@ -389,8 +387,7 @@ def run_simulation(args, config):
             processed = interface.process_pending_transactions()
             if processed > 0:
                 logger.debug(
-                    "Processed %(processed)s transactions in interface",
-                    {processed: processed},
+                    "Processed %s transactions in interface", processed,
                 )
 
             processed_blockchain = blocksim_adapter.process_pending_transactions()
@@ -411,8 +408,7 @@ def run_simulation(args, config):
             blockchain_state = blocksim_adapter.get_blockchain_state()
 
             logger.info(
-                "Simulation time: %(current_time).2f/%(total_time)s",
-                {current_time: current_time, total_time: total_time},
+                "Simulation time: %(current_time).2f/%s", total_time,
             )
             logger.info(
                 "Nodes in network: %(len(net_state['nodes']))s",
@@ -465,8 +461,7 @@ def run_simulation(args, config):
     if args.animation and ns3_adapter:
         animation_file = os.path.join(output_dir, f"animation_{timestamp}.xml")
         logger.info(
-            "Animation file will be saved as: %(animation_file)s",
-            {animation_file: animation_file},
+            "Animation file will be saved as: %s", animation_file,
         )
         logger.info("To view animation, start NetAnim and open the file")
 
@@ -528,8 +523,7 @@ def main():
 
     if results:
         logger.info(
-            "Simulation results saved to %(args.output_dir)s",
-            {args.output_dir: args.output_dir},
+            "Simulation results saved to %s", args.output_dir,
         )
         logger.info(
             "Simulation results timestamp: %(results['timestamp'])s",

@@ -50,29 +50,25 @@ class PathsManager:
                 with open(env_paths_file, "r", encoding="utf-8") as f:
                     self.paths = json.load(f)
                 self.logger.info(
-                    "Loaded paths from %(env_paths_file)s",
-                    {env_paths_file: env_paths_file},
+                    "Loaded paths from %s", env_paths_file,
                 )
 
                 # Ensure all paths exist
                 for name, path in self.paths.items():
                     if not os.path.exists(path):
                         self.logger.warning(
-                            "Path %(name)s = '%(path)s' does not exist",
-                            {name: name, path: path},
+                            "Path %s = '%s' does not exist", (name, path),
                         )
 
             except Exception as e:
                 self.logger.error(
-                    "Error loading paths from %(env_paths_file)s: %(e)s",
-                    {env_paths_file: env_paths_file, e: e},
+                    "Error loading paths from %s: %s", (env_paths_file, env_paths_file),
                 )
                 # Initialize with empty paths
                 self.paths: Dict[str, Any] = {}
         else:
             self.logger.warning(
-                "Paths file not found: %(env_paths_file)s",
-                {env_paths_file: env_paths_file},
+                "Paths file not found: %s", env_paths_file,
             )
             # Initialize with empty paths
             self.paths: Dict[str, Any] = {}
@@ -151,12 +147,12 @@ class PathsManager:
                 json.dump(save_paths, f, indent=4)
 
             self.logger.info(
-                "Saved paths to %(env_paths_file)s", {env_paths_file: env_paths_file}
+                "Saved paths to %s", env_paths_file
             )
             return True
 
         except Exception as e:
-            self.logger.error("Error saving paths: %(e)s", {e: e})
+            self.logger.error("Error saving paths: %s", e)
             return False
 
     def get_ns3_dir(self) -> Optional[str]:

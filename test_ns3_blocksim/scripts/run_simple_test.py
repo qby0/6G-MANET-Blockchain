@@ -49,7 +49,7 @@ def find_ns3_path():
     # Проверяем каждый потенциальный путь
     for path in potential_paths:
         if path.exists() and (path / "ns3").exists():
-            logger.info("Automatically found NS-3 path: %(path)s", {path: path})
+            logger.info("Automatically found NS-3 path: %s", path)
             return str(path)
 
     # Проверяем системные пути
@@ -57,7 +57,7 @@ def find_ns3_path():
     if ns3_cmd:
         # Если ns3 найден в системном PATH, определяем его директорию
         ns3_dir = str(Path(ns3_cmd).parent)
-        logger.info("Found NS-3 in system PATH: %(ns3_dir)s", {ns3_dir: ns3_dir})
+        logger.info("Found NS-3 in system PATH: %s", ns3_dir)
         return ns3_dir
 
     return None
@@ -148,7 +148,7 @@ main (int argc, char *argv[])
     with open(temp_file, "w", encoding="utf-8") as f:
         f.write(example_code)
 
-    logger.info("Created test simulation file: %(temp_file)s", {temp_file: temp_file})
+    logger.info("Created test simulation file: %s", temp_file)
     return temp_file
 
 
@@ -176,8 +176,7 @@ def run_simple_simulation(ns3_path):
                 example_file = path
                 example_name = os.path.splitext(os.path.basename(path))[0]
                 logger.info(
-                    "Found ready example: %(example_name)s",
-                    {example_name: example_name},
+                    "Found ready example: %s", example_name,
                 )
                 break
 
@@ -192,12 +191,11 @@ def run_simple_simulation(ns3_path):
                 example_file = dst_file
                 example_name = "scratch/test-simulation"
                 logger.info(
-                    "Example copied to scratch: %(dst_file)s", {dst_file: dst_file}
+                    "Example copied to scratch: %s", dst_file
                 )
             else:
                 logger.error(
-                    "Scratch directory not found: %(scratch_dir)s",
-                    {scratch_dir: scratch_dir},
+                    "Scratch directory not found: %s", scratch_dir,
                 )
                 return False
         else:
@@ -221,16 +219,15 @@ def run_simple_simulation(ns3_path):
             logger.info("Test simulation completed successfully!")
             logger.info("Simulation output:")
             for line in process.stdout.splitlines():
-                logger.info("  %(line)s", {line: line})
+                logger.info("  %s", line)
             return True
         else:
             logger.error(
-                "Test simulation failed with error: %(process.returncode)s",
-                {process.returncode: process.returncode},
+                "Test simulation failed with error: %s", process.returncode,
             )
             logger.error("Stderr output:")
             for line in process.stderr.splitlines():
-                logger.error("  %(line)s", {line: line})
+                logger.error("  %s", line)
             return False
 
     except subprocess.TimeoutExpired:
@@ -266,10 +263,10 @@ def main():
 
     # Проверяем существование директории NS-3
     if not os.path.exists(ns3_path):
-        logger.error("NS-3 directory not found: %(ns3_path)s", {ns3_path: ns3_path})
+        logger.error("NS-3 directory not found: %s", ns3_path)
         sys.exit(1)
 
-    logger.info("Using NS-3 from directory: %(ns3_path)s", {ns3_path: ns3_path})
+    logger.info("Using NS-3 from directory: %s", ns3_path)
 
     # Запускаем тестовую симуляцию
     result = run_simple_simulation(ns3_path)

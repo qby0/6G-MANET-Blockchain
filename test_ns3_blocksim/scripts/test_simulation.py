@@ -105,7 +105,7 @@ def main():
         json.dump(config, f, indent=2)
 
     logger.info(
-        "Создана тестовая конфигурация: %(config_path)s", {config_path: config_path}
+        "Создана тестовая конфигурация: %s", config_path
     )
 
     # Обновляем конфигурацию с аргументами командной строки
@@ -142,7 +142,7 @@ def main():
     # Выводим команду для запуска
     cmd_line = " ".join(cmd_args)
     logger.info(
-        "Запуск тестовой симуляции с командой: %(cmd_line)s", {cmd_line: cmd_line}
+        "Запуск тестовой симуляции с командой: %s", cmd_line
     )
 
     # Запускаем процесс
@@ -159,8 +159,7 @@ def main():
         if simulation_dirs:
             latest_dir = max(simulation_dirs, key=lambda p: p.stat().st_mtime)
             logger.info(
-                "Результаты симуляции сохранены в: %(latest_dir)s",
-                {latest_dir: latest_dir},
+                "Результаты симуляции сохранены в: %s", latest_dir,
             )
 
             # Проверяем наличие файлов результатов
@@ -189,16 +188,16 @@ def main():
             logger.warning("Не найдены директории с результатами симуляции")
 
     except subprocess.CalledProcessError as e:
-        logger.error("Ошибка при запуске симуляции: %(e)s", {e: e})
-        logger.error("Стандартный вывод: %(e.stdout)s", {e.stdout: e.stdout})
-        logger.error("Стандартный вывод ошибок: %(e.stderr)s", {e.stderr: e.stderr})
+        logger.error("Ошибка при запуске симуляции: %s", e)
+        logger.error("Стандартный вывод: %s", e.stdout)
+        logger.error("Стандартный вывод ошибок: %s", e.stderr)
         return 1
 
     # Удаляем временный файл конфигурации
     try:
         os.remove(config_path)
     except Exception as e:
-        logger.warning("Не удалось удалить временный файл конфигурации: %(e)s", {e: e})
+        logger.warning("Не удалось удалить временный файл конфигурации: %s", e)
 
     return 0
 

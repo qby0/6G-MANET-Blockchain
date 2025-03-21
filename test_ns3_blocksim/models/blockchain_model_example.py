@@ -88,8 +88,7 @@ class Block:
             self.hash = self.calculate_hash()
 
         logger.info(
-            "Block #%(self.index)s mined: %(self.hash)s",
-            {self.index: self.index, self.hash: self.hash},
+            "Block #%s mined: %s", (self.index, self.hash),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -236,16 +235,14 @@ class Blockchain:
             # Check if the block's hash is valid / Проверка корректности хеша блока
             if current_block.hash != current_block.calculate_hash():
                 logger.error(
-                    "Invalid hash for block #%(current_block.index)s",
-                    {current_block.index: current_block.index},
+                    "Invalid hash for block #%s", current_block.index,
                 )
                 return False
 
             # Check if the block points to the correct previous block / Проверка указания на правильный предыдущий блок
             if current_block.previous_hash != previous_block.hash:
                 logger.error(
-                    "Invalid previous_hash for block #%(current_block.index)s",
-                    {current_block.index: current_block.index},
+                    "Invalid previous_hash for block #%s", current_block.index,
                 )
                 return False
 
@@ -285,10 +282,10 @@ class Blockchain:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.to_dict(), f, indent=2)
 
-            logger.info("Blockchain saved to %(filepath)s", {filepath: filepath})
+            logger.info("Blockchain saved to %s", filepath)
             return True
         except Exception as e:
-            logger.error("Error saving blockchain: %(e)s", {e: e})
+            logger.error("Error saving blockchain: %s", e)
             return False
 
     @classmethod

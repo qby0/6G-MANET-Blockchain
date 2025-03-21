@@ -88,7 +88,7 @@ def find_ns3_path():
     # Проверяем каждый потенциальный путь
     for path in potential_paths:
         if path.exists() and (path / "ns3").exists():
-            logger.info("Automatically found NS-3 path: %(path)s", {path: path})
+            logger.info("Automatically found NS-3 path: %s", path)
             return str(path)
 
     return None
@@ -129,10 +129,10 @@ def main():
 
     # Проверяем существование директории NS-3
     if not os.path.exists(ns3_path):
-        logger.error("NS-3 directory not found: %(ns3_path)s", {ns3_path: ns3_path})
+        logger.error("NS-3 directory not found: %s", ns3_path)
         sys.exit(1)
 
-    logger.info("Using NS-3 from directory: %(ns3_path)s", {ns3_path: ns3_path})
+    logger.info("Using NS-3 from directory: %s", ns3_path)
 
     # Создаем выходную директорию, если не указана
     if not args.output_dir:
@@ -145,7 +145,7 @@ def main():
         output_dir = args.output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-    logger.info("Results will be saved to: %(output_dir)s", {output_dir: output_dir})
+    logger.info("Results will be saved to: %s", output_dir)
 
     try:
         # Создаем адаптер NS-3
@@ -180,8 +180,7 @@ def main():
 
         # Запускаем симуляцию
         logger.info(
-            "Running test simulation for %(args.duration)s seconds...",
-            {args.duration: args.duration},
+            "Running test simulation for %s seconds...", args.duration,
         )
         results = adapter.run_simulation(
             scenario_file,
@@ -196,8 +195,7 @@ def main():
             json.dump(results, f, indent=2)
 
         logger.info(
-            "Testing completed successfully. Results saved to %(results_file)s",
-            {results_file: results_file},
+            "Testing completed successfully. Results saved to %s", results_file,
         )
         logger.info("Brief simulation results:")
         logger.info(
