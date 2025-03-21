@@ -8,6 +8,7 @@ This document analyzes which features from the main README.md have already been 
 - ✅ Basic MANET network implemented using NS-3
 - ✅ Integration interface between NS-3 and blockchain simulation created
 - ✅ Different node types added (base station, validators, regular nodes)
+- ✅ Single base station simulation with AODV routing implemented
 - ⚠️ Partially implemented: distributed blockchain registry for node registration
 - ❌ Not implemented: full integration of 6G network with MANET
 
@@ -15,14 +16,16 @@ This document analyzes which features from the main README.md have already been 
 - ✅ Base station can initialize the blockchain
 - ✅ Initial network parameters defined through configuration file
 - ✅ Node registration in the system
+- ✅ Support for node movement under a single base station
 - ⚠️ Partially implemented: initial set of validators
 
 ### Registration of New Nodes
 - ✅ Node registration mechanism implemented
+- ✅ Node connectivity based on coverage radius
 - ⚠️ Partially implemented: node signature verification
 - ❌ Not implemented: complete procedure for verifying node credentials
 - ❌ Not implemented: mechanism for issuing cryptographic keys
-- ❌ Not implemented: node entering another MANET node's zone outside base station coverage
+- ⚠️ Partially implemented: node entering another MANET node's zone outside base station coverage (via AODV)
 - ❌ Not implemented: confirmation by a quorum of neighboring nodes
 
 ### Security Mechanisms
@@ -35,25 +38,26 @@ This document analyzes which features from the main README.md have already been 
 
 ### Node Activity Monitoring
 - ✅ Basic tracking of node activity
-- ⚠️ Partially implemented: updating node positions
-- ⚠️ Partially implemented: tracking connections between nodes
+- ✅ Updating node positions during simulation
+- ✅ Tracking connections between nodes based on coverage
 - ❌ Not implemented: "heartbeat" transactions
-- ❌ Not implemented: monitoring of neighboring nodes
+- ⚠️ Partially implemented: monitoring of neighboring nodes
 - ❌ Not implemented: smart contract for correlating data from different nodes
 
 ### Route Construction and Verification
-- ⚠️ Partially implemented: basic routing (AODV in NS-3)
-- ⚠️ Partially implemented: checking path availability between nodes
-- ❌ Not implemented: formation of alternative routes
+- ✅ Basic routing (AODV in NS-3) implemented
+- ✅ Checking path availability between nodes and base station
+- ⚠️ Partially implemented: formation of alternative routes (via AODV)
 - ❌ Not implemented: consideration of trust rating and other parameters in routing
 - ❌ Not implemented: route verification by validators
 - ❌ Not implemented: registration of data transfers in the blockchain
 
 ### Adaptation to Topology Changes
 - ✅ Tracking node movement
-- ⚠️ Partially implemented: updating network topology
+- ✅ Updating network topology based on node movement
+- ✅ Dynamic adjustment of connections as nodes move in/out of coverage
 - ❌ Not implemented: recording changes in the blockchain via special transactions
-- ❌ Not implemented: rebuilding routes during critical changes
+- ⚠️ Partially implemented: rebuilding routes during critical changes (via AODV)
 - ❌ Not implemented: proactive creation of alternative routes
 
 ### Consensus Mechanism
@@ -64,7 +68,8 @@ This document analyzes which features from the main README.md have already been 
 - ❌ Not implemented: blockchain sharding
 
 ### Recovery After Failures
-- ⚠️ Partially implemented: saving and loading network state
+- ✅ Saving and loading network state
+- ✅ Interim state saving during simulation
 - ❌ Not implemented: detection of temporary network partitions
 - ❌ Not implemented: blockchain merging procedure
 - ❌ Not implemented: conflict resolution
@@ -76,6 +81,12 @@ This document analyzes which features from the main README.md have already been 
 - ❌ Not implemented: putting nodes into energy-saving mode
 - ❌ Not implemented: compression and optimization of blockchain data
 - ❌ Not implemented: prediction of changes
+
+### Simulation Enhancements
+- ✅ Support for animation and visualization
+- ✅ International support (all messages translated to English)
+- ✅ Configurable simulation parameters (coverage radius, movement speed, node count)
+- ✅ Detailed results logging and analysis
 
 ### Security Policies and Updates
 - ❌ Not implemented: anomalous behavior detection
@@ -95,7 +106,7 @@ The following order of implementation for missing features is proposed:
 
 2. **Medium Priority**:
    - Implementation of "heartbeat" transactions and node monitoring
-   - Adaptation to topology changes and route reconstruction
+   - Recording topology changes in the blockchain
    - Recovery mechanisms after failures
    - Performance and energy consumption optimization
 
@@ -134,6 +145,27 @@ To improve routing, it is proposed to:
 - Add route verification mechanisms
 - Provide priority routing for mission-critical data
 
-## 4. Conclusion
+## 4. Recently Implemented Features
 
-The current implementation provides a good foundation for integrating NS-3 and blockchain simulation, but requires significant enhancement to fully implement all the features described in the README. Special attention should be paid to security, consensus mechanism, and adaptation to topology changes, as these aspects are critical for the operation of a blockchain system in a mobile network environment. 
+### Single Base Station Simulation
+- Implemented a simulation with a single stationary base station and mobile nodes
+- Nodes move within a defined area at configurable speeds
+- Nodes within base station coverage can communicate directly
+- Nodes outside coverage use AODV routing through other nodes to reach the base station
+- Dynamic topology updates based on node movement
+
+### Internationalization
+- All console output messages translated to English
+- Documentation available in English
+- Code comments updated to be consistent
+
+### Enhanced Visualization
+- Support for NS-3 animation output
+- Tracking of node positions for visualization
+- Flow monitoring for network traffic analysis
+
+## 5. Conclusion
+
+The current implementation provides a solid foundation for integrating NS-3 and blockchain simulation. Recent additions like the single base station simulation with AODV routing and mobile nodes significantly enhance the project's capabilities. The focus on internationalization makes the project more accessible to a wider audience. 
+
+Moving forward, the priority should be on enhancing the blockchain functionality, particularly the consensus mechanism and security features. The integration between NS-3 and the blockchain simulation needs further development to fully realize the potential of this system in a mobile network environment. 
