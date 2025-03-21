@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Analysis Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .section { margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        pre { background-color: #f5f5f5; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>Code Analysis Report (20250321_033129)</h1>
+
+    <div class="section">
+        <h2>Summary</h2>
+        <p>Directories analyzed: models scripts</p>
+    </div>
+    <div class="section">
+        <h2>Code Formatting (Black)</h2>
+        <p class="pass">Status: Properly formatted</p>
+        <pre></pre>
+    </div>
+    <div class="section">
+        <h2>Code Quality (Pylint)</h2>
+        <p class="fail">Status: Score: at/10</p>
+        <pre>************* Module /home/katae/study/dp/test_ns3_blocksim/.pylintrc
+.pylintrc:1:0: E0015: Unrecognized option found: max-complexity (unrecognized-option)
+.pylintrc:1:0: R0022: Useless option value for '--disable', 'C0330' was removed from pylint, see https://github.com/pylint-dev/pylint/pull/3571. (useless-option-value)
+.pylintrc:1:0: R0022: Useless option value for '--disable', 'C0326' was removed from pylint, see https://github.com/pylint-dev/pylint/pull/3577. (useless-option-value)
+.pylintrc:1:0: R0022: Useless option value for '--disable', 'R0201' was moved to an optional extension, see https://pylint.readthedocs.io/en/latest/whatsnew/2/2.14/summary.html#removed-checkers. (useless-option-value)
+************* Module models.integration_interface
+models/integration_interface.py:177:8: W0621: Redefining name 'tx_id' from outer scope (line 435) (redefined-outer-name)
+models/integration_interface.py:175:8: C0415: Import outside toplevel (uuid) (import-outside-toplevel)
+models/integration_interface.py:284:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/integration_interface.py:262:23: W0718: Catching too general exception Exception (broad-exception-caught)
+models/integration_interface.py:255:20: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/integration_interface.py:269:20: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/integration_interface.py:331:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/integration_interface.py:306:16: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/integration_interface.py:444:38: E0602: Undefined variable 'tempfile' (undefined-variable)
+models/integration_interface.py:10:0: W0611: Unused import sys (unused-import)
+************* Module models.blocksim_adapter
+models/blocksim_adapter.py:97:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/blocksim_adapter.py:92:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/blocksim_adapter.py:182:8: C0415: Import outside toplevel (hashlib) (import-outside-toplevel)
+models/blocksim_adapter.py:183:8: C0415: Import outside toplevel (time) (import-outside-toplevel)
+models/blocksim_adapter.py:266:8: C0415: Import outside toplevel (hashlib) (import-outside-toplevel)
+models/blocksim_adapter.py:292:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/blocksim_adapter.py:383:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/blocksim_adapter.py:399:16: W0621: Redefining name 'state' from outer scope (line 440) (redefined-outer-name)
+models/blocksim_adapter.py:409:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/blocksim_adapter.py:444:36: E0602: Undefined variable 'tempfile' (undefined-variable)
+models/blocksim_adapter.py:10:0: W0611: Unused import sys (unused-import)
+models/blocksim_adapter.py:13:0: W0611: Unused import random (unused-import)
+models/blocksim_adapter.py:15:0: W0611: Unused Tuple imported from typing (unused-import)
+************* Module models.blockchain_model_example
+models/blockchain_model_example.py:29:4: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+models/blockchain_model_example.py:216:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/blockchain_model_example.py:281:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/blockchain_model_example.py:304:8: W0621: Redefining name 'blockchain' from outer scope (line 330) (redefined-outer-name)
+models/blockchain_model_example.py:321:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+************* Module models.ns3_adapter
+models/ns3_adapter.py:65:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/ns3_adapter.py:162:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/ns3_adapter.py:195:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/ns3_adapter.py:231:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/ns3_adapter.py:313:14: W0621: Redefining name 'results' from outer scope (line 354) (redefined-outer-name)
+models/ns3_adapter.py:361:11: W0718: Catching too general exception Exception (broad-exception-caught)
+models/ns3_adapter.py:362:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+models/ns3_adapter.py:16:0: W0611: Unused Union imported from typing (unused-import)
+************* Module models.paths_manager
+models/paths_manager.py:59:19: W0718: Catching too general exception Exception (broad-exception-caught)
+models/paths_manager.py:135:12: W0621: Redefining name 'save_paths' from outer scope (line 210) (redefined-outer-name)
+models/paths_manager.py:144:15: W0718: Catching too general exception Exception (broad-exception-caught)
+models/paths_manager.py:31:11: E0203: Access to member '_initialized' before its definition line 37 (access-member-before-definition)
+...
+See full report in code_analysis_reports/pylint_report_20250321_033129.txt</pre>
+    </div>
+    <div class="section">
+        <h2>Type Checking (MyPy)</h2>
+        <p class="fail">Status: 1 type issues found</p>
+        <pre>scripts/test_ns3.py:197: error: unmatched '}'  [syntax]
+Found 1 error in 1 file (errors prevented further checking)</pre>
+    </div>
+    <div class="section">
+        <h2>Security Analysis (Bandit)</h2>
+        <p class="fail">Status: 15 security issues found</p>
+        <pre>Run started:2025-03-21 02:31:38.204174
+
+Test results:
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: models/ns3_adapter.py:10:0
+9	import os
+10	import subprocess
+11	import logging
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: models/ns3_adapter.py:149:21
+148	            # Run ns3 --version to get version
+149	            result = subprocess.run([self.ns3_script, "--version"],
+150	                capture_output=True,
+151	                text=True,
+152	                check=True,
+153	            )
+154	            # Extract version from output
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: models/ns3_adapter.py:179:21
+178	            # Run ns3 show modules to get available modules
+179	            result = subprocess.run(
+180	                [self.ns3_script, "show", "modules"],
+181	                capture_output=True,
+182	                text=True,
+183	                check=True,
+184	            )
+185	            # Extract module names
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: models/ns3_adapter.py:226:21
+225	            logger.info("Running NS-3 simulation: %(' '.join(cmd))s", {' '.join(cmd): ' '.join(cmd)})
+226	            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+227	            return True, result.stdout
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: scripts/check_ns3.py:11:0
+10	import argparse
+11	import subprocess
+12	import logging
+
+--------------------------------------------------
+>> Issue: [B103:set_bad_file_permissions] Chmod setting a permissive mask 0o755 on file (ns3_executable).
+   Severity: Medium   Confidence: High
+   CWE: CWE-732 (https://cwe.mitre.org/data/definitions/732.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b103_set_bad_file_permissions.html
+   Location: scripts/check_ns3.py:49:12
+48	            logger.info("Trying to add execution permissions...")
+49	            os.chmod(ns3_executable, 0o755)  # Добавляем права на выполнение
+50	            logger.info("Execution permissions added successfully")
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: scripts/check_ns3.py:68:21
+67	            # Пробуем запустить с минимальным опциями
+68	            result = subprocess.run([ns3_executable, "--help"],
+69	                capture_output=True,
+70	                text=True,
+71	                timeout=10,  # Добавляем таймаут
+72	            )
+73	            if result.returncode == 0:
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: scripts/check_ns3.py:84:25
+83	                logger.info("Trying alternative check...")
+84	                result = subprocess.run(
+85	                    [ns3_executable], capture_output=True, text=True, timeout=10
+86	                )
+87	                return result.returncode == 0
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: scripts/check_ns3.py:129:17
+128	        ns3_executable = os.path.join(ns3_path, "ns3")
+129	        result = subprocess.run(
+130	            [ns3_executable, "show", "modules"],
+131	            capture_output=True,
+132	            text=True,
+133	            check=False,  # Не выбрасываем исключение при ошибке
+134	        )
+135
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_calls.html#b311-random
+   Location: scripts/run_basic_simulation.py:358:32
+357	                    source_id = secrets.choice(all_node_ids)
+358	                    target_id = random.choice(
+359	                        [n for n in all_node_ids if n != source_id]
+360	                    )
+361
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_calls.html#b311-random
+   Location: scripts/run_distributed_simulation.py:151:11
+150
+151	        if random.random() < generation_rate:
+152	            # Create a simple transaction
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: scripts/run_simple_test.py:11:0
+10	import argparse
+11	import subprocess
+12	import logging
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: scripts/run_simple_test.py:206:18
+205
+206	        process = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=60
+207	        )
+208
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: scripts/test_simulation.py:145:4
+144	    # Запускаем процесс
+145	    import subprocess
+146
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.8.3/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: scripts/test_simulation.py:148:18
+147	    try:
+148	        process = subprocess.run(cmd_args, check=True, capture_output=True, text=True)
+149	        logger.info("Симуляция успешно завершена")
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 4338
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 14
+		Medium: 1
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 15
+Files skipped (1):
+	scripts/test_ns3.py (syntax error while parsing AST from file)</pre>
+    </div>
+    <div class="section">
+        <h2>Recommendations</h2>
+        <ul>
+            <li>Run <code>black models scripts</code> to automatically format your code.</li>
+            <li>Address Pylint warnings to improve code quality.</li>
+            <li>Add type hints to fix MyPy warnings for better type safety.</li>
+            <li>Fix security issues identified by Bandit.</li>
+        </ul>
+    </div>
+</body>
+</html>

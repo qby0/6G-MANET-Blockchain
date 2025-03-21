@@ -6,36 +6,40 @@
 Обеспечивает управление симуляцией блокчейна.
 """
 
-import os
-import sys
 import json
 import logging
+import os
 import random
-from typing import Dict, List, Any, Optional, Tuple
+import secrets
+import sys
+from typing import Any, Dict, List, Optional, Tuple
 
 # Настройка логирования
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("BlockSimAdapter")
 
+
 class BlockSimAdapter:
     """Класс для взаимодействия с BlockSim"""
-    
-    def __init__(self, config_path: str = None):
+
+    def __init__(self, config_path: Optional[Any] = None):
         """
         Инициализирует адаптер для BlockSim.
-        
+
         Args:
             config_path (str, optional): Путь к файлу конфигурации.
         """
-        self.config = {}
+        self.config: Dict[str, Any] = {}
         if config_path and os.path.exists(config_path):
-            with open(config_path, 'r') as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
-                logger.info(f"Конфигурация загружена из {config_path}")
-        
+                logger.info(
+                    "Конфигурация загружена из %(config_path)s",
+                    {config_path: config_path},
+                )
+
         # BlockSim должен быть установлен
         try:
             # В реальном использовании проверяем наличие BlockSim
@@ -43,34 +47,34 @@ class BlockSimAdapter:
             # from blocksim.models.consensus import ProofOfAuthority
             logger.info("Проверка импорта модулей BlockSim выполнена")
         except ImportError as e:
-            logger.warning(f"Не удалось импортировать модули BlockSim: {e}")
+            logger.warning("Не удалось импортировать модули BlockSim: %(e)s", {e: e})
             logger.warning("Будет использоваться эмуляция BlockSim")
-        
+
         # Внутренние переменные для отслеживания состояния симуляции
         self.blockchain = None
-        self.nodes = {}
-        self.blocks = []
-        self.transactions = []
+        self.nodes: Dict[str, Any] = {}
+        self.blocks: List[Any] = []
+        self.transactions: List[Any] = []
         self.current_time = 0.0
-    
-    def initialize_blockchain(self, consensus_type: str, 
-                            num_validators: int,
-                            block_interval: float) -> bool:
+
+    def initialize_blockchain(
+        self, consensus_type: str, num_validators: int, block_interval: float
+    ) -> bool:
         """
         Инициализирует блокчейн с указанными параметрами.
-        
+
         Args:
             consensus_type (str): Тип консенсуса ('PoW', 'PoA', 'PBFT')
             num_validators (int): Количество узлов-валидаторов
             block_interval (float): Интервал создания блока в секундах
-            
+
         Returns:
             bool: True, если инициализация успешна, иначе False
         """
         try:
             # В реальной интеграции здесь был бы код инициализации BlockSim
             # self.blockchain = Blockchain(consensus_type=consensus_type, ...)
-            
+
             # Эмулируем создание блокчейна
             self.blockchain = {
                 "consensus_type": consensus_type,
@@ -81,37 +85,40 @@ class BlockSimAdapter:
                     "timestamp": self.current_time,
                     "transactions": [],
                     "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-                    "validator": "genesis"
-                }
+                    "validator": "genesis",
+                },
             }
-            
+
             # Добавляем первый блок
             self.blocks.append(self.blockchain["genesis_block"])
-            
-            logger.info(f"Блокчейн инициализирован с консенсусом {consensus_type}, {num_validators} валидаторами")
+
+            logger.info(
+                f"Блокчейн инициализирован с консенсусом {consensus_type}, {num_validators} валидаторами"
+            )
             return True
-            
+
         except Exception as e:
-            logger.error(f"Ошибка инициализации блокчейна: {e}")
+            logger.error("Ошибка инициализации блокчейна: %(e)s", {e: e})
             return False
-    
-    def register_node(self, node_id: str, node_type: str, 
-                     resources: Dict[str, Any]) -> bool:
+
+    def register_node(
+        self, node_id: str, node_type: str, resources: Dict[str, Any]
+    ) -> bool:
         """
         Регистрирует новый узел в блокчейне.
-        
+
         Args:
             node_id (str): Идентификатор узла
             node_type (str): Тип узла ('validator', 'regular')
             resources (Dict[str, Any]): Ресурсы узла (вычислительная мощность и пр.)
-            
+
         Returns:
             bool: True, если узел успешно зарегистрирован, иначе False
         """
         if node_id in self.nodes:
-            logger.warning(f"Узел {node_id} уже зарегистрирован")
+            logger.warning("Узел %(node_id)s уже зарегистрирован", {node_id: node_id})
             return False
-        
+
         # Создаем запись узла
         self.nodes[node_id] = {
             "id": node_id,
@@ -120,60 +127,78 @@ class BlockSimAdapter:
             "registered_time": self.current_time,
             "transactions_processed": 0,
             "blocks_created": 0,
-            "is_active": True
+            "is_active": True,
         }
-        
-        logger.info(f"Узел {node_id} зарегистрирован как {node_type}")
+
+        logger.info(
+            "Узел %(node_id)s зарегистрирован как %(node_type)s",
+            {node_id: node_id, node_type: node_type},
+        )
         return True
-    
+
     def update_node_status(self, node_id: str, is_active: bool) -> bool:
         """
         Обновляет статус активности узла.
-        
+
         Args:
             node_id (str): Идентификатор узла
             is_active (bool): Активен ли узел
-            
+
         Returns:
             bool: True, если статус успешно обновлен, иначе False
         """
         if node_id not in self.nodes:
-            logger.error(f"Узел {node_id} не найден")
+            logger.error("Узел %(node_id)s не найден", {node_id: node_id})
             return False
-        
+
         self.nodes[node_id]["is_active"] = is_active
-        
+
         status_text = "активен" if is_active else "неактивен"
-        logger.info(f"Статус узла {node_id} обновлен: {status_text}")
+        logger.info(
+            "Статус узла %(node_id)s обновлен: %(status_text)s",
+            {node_id: node_id, status_text: status_text},
+        )
         return True
-    
-    def create_transaction(self, source_id: str, target_id: str, 
-                         data: Dict[str, Any], tx_type: str = "data") -> str:
+
+    def create_transaction(
+        self,
+        source_id: str,
+        target_id: str,
+        data: Dict[str, Any],
+        tx_type: str = "data",
+    ) -> str:
         """
         Создает новую транзакцию.
-        
+
         Args:
             source_id (str): Идентификатор узла-отправителя
             target_id (str): Идентификатор узла-получателя
             data (Dict[str, Any]): Данные транзакции
             tx_type (str, optional): Тип транзакции. По умолчанию "data".
-            
+
         Returns:
             str: Идентификатор транзакции или пустая строка в случае ошибки
         """
         if source_id not in self.nodes:
-            logger.error(f"Узел-отправитель {source_id} не найден")
+            logger.error(
+                "Узел-отправитель %(source_id)s не найден", {source_id: source_id}
+            )
             return ""
-        
+
         if target_id not in self.nodes:
-            logger.error(f"Узел-получатель {target_id} не найден")
+            logger.error(
+                "Узел-получатель %(target_id)s не найден", {target_id: target_id}
+            )
             return ""
-        
+
         # Генерируем идентификатор транзакции
         import hashlib
         import time
-        tx_id = hashlib.sha256(f"{source_id}{target_id}{str(data)}{time.time()}".encode()).hexdigest()[:16]
-        
+
+        tx_id = hashlib.sha256(
+            f"{source_id}{target_id}{str(data)}{time.time()}".encode()
+        ).hexdigest()[:16]
+
         # Создаем транзакцию
         transaction = {
             "id": tx_id,
@@ -182,78 +207,84 @@ class BlockSimAdapter:
             "data": data,
             "type": tx_type,
             "timestamp": self.current_time,
-            "status": "pending"
+            "status": "pending",
         }
-        
+
         self.transactions.append(transaction)
-        
-        logger.info(f"Транзакция {tx_id} создана между {source_id} и {target_id}")
+
+        logger.info(
+            "Транзакция %(tx_id)s создана между %(source_id)s и %(target_id)s",
+            {tx_id: tx_id, source_id: source_id, target_id: target_id},
+        )
         return tx_id
-    
+
     def process_pending_transactions(self) -> int:
         """
         Обрабатывает ожидающие транзакции.
-        
+
         Returns:
             int: Количество обработанных транзакций
         """
         if not self.blockchain:
             logger.error("Блокчейн не инициализирован")
             return 0
-        
+
         count = 0
         for tx in self.transactions:
             if tx["status"] == "pending":
                 # Обрабатываем транзакцию
                 tx["status"] = "confirmed"
-                
+
                 # Обновляем счетчик транзакций для узла
                 if tx["source"] in self.nodes:
                     self.nodes[tx["source"]]["transactions_processed"] += 1
-                
+
                 count += 1
-        
-        logger.info(f"Обработано {count} транзакций")
+
+        logger.info("Обработано %(count)s транзакций", {count: count})
         return count
-    
+
     def create_block(self) -> Dict[str, Any]:
         """
         Создает новый блок с ожидающими транзакциями.
-        
+
         Returns:
             Dict[str, Any]: Информация о созданном блоке или пустой словарь в случае ошибки
         """
         if not self.blockchain:
             logger.error("Блокчейн не инициализирован")
             return {}
-        
+
         # Получаем ожидающие транзакции
         pending_txs = [tx for tx in self.transactions if tx["status"] == "confirmed"]
-        
+
         if not pending_txs:
             logger.warning("Нет транзакций для создания блока")
             return {}
-        
+
         # Выбираем случайного активного валидатора
-        validators = [node_id for node_id, node in self.nodes.items() 
-                     if node["type"] == "validator" and node["is_active"]]
-        
+        validators = [
+            node_id
+            for node_id, node in self.nodes.items()
+            if node["type"] == "validator" and node["is_active"]
+        ]
+
         if not validators:
             logger.error("Нет активных валидаторов для создания блока")
             return {}
-        
-        validator = random.choice(validators)
-        
+
+        validator = secrets.choice(validators)
+
         # Создаем блок
         block_index = len(self.blocks)
-        previous_hash = self.blocks[-1]["previous_hash"] if self.blocks else "0"*64
-        
+        previous_hash = self.blocks[-1]["previous_hash"] if self.blocks else "0" * 64
+
         import hashlib
-        
+
         # Создаем хеш нового блока
         block_data = f"{block_index}{previous_hash}{str(pending_txs)}{validator}{self.current_time}"
         block_hash = hashlib.sha256(block_data.encode()).hexdigest()
-        
+
         block = {
             "index": block_index,
             "timestamp": self.current_time,
@@ -261,51 +292,56 @@ class BlockSimAdapter:
             "previous_hash": previous_hash,
             "hash": block_hash,
             "validator": validator,
-            "size": len(pending_txs)
+            "size": len(pending_txs),
         }
-        
+
         self.blocks.append(block)
-        
+
         # Обновляем статус транзакций
         for tx in pending_txs:
             tx["status"] = "included"
             tx["block_index"] = block_index
-        
+
         # Обновляем счетчик блоков для валидатора
         self.nodes[validator]["blocks_created"] += 1
-        
-        logger.info(f"Блок {block_index} создан валидатором {validator} с {len(pending_txs)} транзакциями")
+
+        logger.info(
+            f"Блок {block_index} создан валидатором {validator} с {len(pending_txs)} транзакциями"
+        )
         return block
-    
+
     def advance_time(self, time_delta: float) -> None:
         """
         Продвигает время симуляции вперед.
-        
+
         Args:
             time_delta (float): Количество секунд для продвижения времени
         """
         old_time = self.current_time
         self.current_time += time_delta
-        
-        logger.debug(f"Время симуляции продвинуто с {old_time} до {self.current_time}")
-        
+
+        logger.debug(
+            "Время симуляции продвинуто с %(old_time)s до %(self.current_time)s",
+            {old_time: old_time, self.current_time: self.current_time},
+        )
+
         # Проверяем, нужно ли создавать новые блоки
         if self.blockchain:
             # Интервал между блоками
             block_interval = self.blockchain.get("block_interval", 10.0)
-            
+
             # Количество блоков, которые должны были быть созданы
             blocks_to_create = int((self.current_time - old_time) / block_interval)
-            
+
             # Создаем блоки
             for _ in range(blocks_to_create):
                 if self.process_pending_transactions() > 0:
                     self.create_block()
-    
+
     def get_blockchain_state(self) -> Dict[str, Any]:
         """
         Возвращает текущее состояние блокчейна.
-        
+
         Returns:
             Dict[str, Any]: Текущее состояние блокчейна
         """
@@ -314,19 +350,29 @@ class BlockSimAdapter:
             "blockchain_config": self.blockchain if self.blockchain else {},
             "blocks_count": len(self.blocks),
             "transactions_count": len(self.transactions),
-            "pending_transactions": len([tx for tx in self.transactions if tx["status"] == "pending"]),
-            "confirmed_transactions": len([tx for tx in self.transactions if tx["status"] in ["confirmed", "included"]]),
+            "pending_transactions": len(
+                [tx for tx in self.transactions if tx["status"] == "pending"]
+            ),
+            "confirmed_transactions": len(
+                [
+                    tx
+                    for tx in self.transactions
+                    if tx["status"] in ["confirmed", "included"]
+                ]
+            ),
             "nodes": {
                 "total": len(self.nodes),
-                "validators": len([n for n in self.nodes.values() if n["type"] == "validator"]),
-                "active": len([n for n in self.nodes.values() if n["is_active"]])
-            }
+                "validators": len(
+                    [n for n in self.nodes.values() if n["type"] == "validator"]
+                ),
+                "active": len([n for n in self.nodes.values() if n["is_active"]]),
+            },
         }
-    
+
     def get_detailed_state(self) -> Dict[str, Any]:
         """
         Возвращает детальное текущее состояние симуляции.
-        
+
         Returns:
             Dict[str, Any]: Детальное состояние симуляции
         """
@@ -335,79 +381,83 @@ class BlockSimAdapter:
             "blockchain": self.blockchain,
             "nodes": self.nodes,
             "blocks": self.blocks,
-            "transactions": self.transactions
+            "transactions": self.transactions,
         }
-    
+
     def save_state(self, filepath: str) -> bool:
         """
         Сохраняет текущее состояние в файл JSON.
-        
+
         Args:
             filepath (str): Путь для сохранения
-            
+
         Returns:
             bool: True, если состояние успешно сохранено, иначе False
         """
         try:
-            with open(filepath, 'w') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_detailed_state(), f, indent=2)
-            logger.info(f"Состояние сохранено в {filepath}")
+            logger.info("Состояние сохранено в %(filepath)s", {filepath: filepath})
             return True
         except Exception as e:
-            logger.error(f"Ошибка при сохранении состояния: {e}")
+            logger.error("Ошибка при сохранении состояния: %(e)s", {e: e})
             return False
-    
+
     def load_state(self, filepath: str) -> bool:
         """
         Загружает состояние из файла JSON.
-        
+
         Args:
             filepath (str): Путь к файлу состояния
-            
+
         Returns:
             bool: True, если состояние успешно загружено, иначе False
         """
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 state = json.load(f)
-            
+
             self.current_time = state.get("current_time", 0.0)
             self.blockchain = state.get("blockchain", None)
             self.nodes = state.get("nodes", {})
             self.blocks = state.get("blocks", [])
             self.transactions = state.get("transactions", [])
-            
-            logger.info(f"Состояние загружено из {filepath}")
+
+            logger.info("Состояние загружено из %(filepath)s", {filepath: filepath})
             return True
         except Exception as e:
-            logger.error(f"Ошибка при загрузке состояния: {e}")
+            logger.error("Ошибка при загрузке состояния: %(e)s", {e: e})
             return False
 
 
 if __name__ == "__main__":
     # Пример использования
     adapter = BlockSimAdapter()
-    
+
     # Инициализируем блокчейн
     adapter.initialize_blockchain("PoA", 3, 5.0)
-    
+
     # Регистрируем узлы
     adapter.register_node("node1", "validator", {"computing_power": 10})
     adapter.register_node("node2", "validator", {"computing_power": 8})
     adapter.register_node("node3", "validator", {"computing_power": 12})
     adapter.register_node("node4", "regular", {"computing_power": 5})
     adapter.register_node("node5", "regular", {"computing_power": 4})
-    
+
     # Создаем несколько транзакций
-    adapter.create_transaction("node4", "node5", {"data": "Hello, BlockSim!"}, "message")
-    adapter.create_transaction("node5", "node4", {"data": "Response from BlockSim"}, "message")
-    
+    adapter.create_transaction(
+        "node4", "node5", {"data": "Hello, BlockSim!"}, "message"
+    )
+    adapter.create_transaction(
+        "node5", "node4", {"data": "Response from BlockSim"}, "message"
+    )
+
     # Продвигаем время симуляции
     adapter.advance_time(10.0)
-    
+
     # Смотрим состояние блокчейна
     state = adapter.get_blockchain_state()
     print("Состояние блокчейна:", state)
-    
+
     # Сохраняем состояние
-    adapter.save_state("/tmp/blocksim_state.json")
+    adapter.save_state(os.path.join(tempfile.gettempdir(), "blocksim_state.json"))

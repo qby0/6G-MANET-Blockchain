@@ -1,3 +1,3 @@
 from .distributed_initialization import DistributedInitialization
 
-__all__ = ['DistributedInitialization'] 
+__all__ = ["DistributedInitialization"]

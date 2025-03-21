@@ -1,0 +1,50 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+-   repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+    -   id: black
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        args: ["--profile", "black"]
+
+-   repo: local
+    hooks:
+    -   id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args:
+          [
+            "-rn", # Only display messages
+            "-sn", # Don't display the score
+            "--recursive=y",
+            "--ignore=external,venv",
+          ]
+
+    -   id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        exclude: "external/|venv/"
+        args: ["--ignore-missing-imports"]
+
+    -   id: bandit
+        name: bandit
+        entry: bandit
+        language: system
+        types: [python]
+        exclude: "tests/"
+        args: ["-c", "pyproject.toml"]
