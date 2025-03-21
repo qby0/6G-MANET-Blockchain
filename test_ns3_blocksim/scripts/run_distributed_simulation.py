@@ -135,12 +135,26 @@ def update_node_positions(
 
                 # Simple random walk
                 dx = (
-                    ((-1) + (secrets.randbelow(int((1 - -1) * 1000)) / 1000.0))
+                    (
+                        min(
+                            1.0,
+                            max(
+                                -1.0, -1.0 + secrets.randbelow(int(2.0 * 1000)) / 1000.0
+                            ),
+                        )
+                    )
                     * speed
                     * time_step
                 )
                 dy = (
-                    ((-1) + (secrets.randbelow(int((1 - -1) * 1000)) / 1000.0))
+                    (
+                        min(
+                            1.0,
+                            max(
+                                -1.0, -1.0 + secrets.randbelow(int(2.0 * 1000)) / 1000.0
+                            ),
+                        )
+                    )
                     * speed
                     * time_step
                 )
@@ -171,7 +185,12 @@ def generate_transactions(config, blockchain_manager, nodes, current_time):
             data = {
                 "timestamp": current_time,
                 "message": f"Transaction from {node_id} at {current_time:.2f}",
-                "value": ((1) + (secrets.randbelow(int((100 - 1) * 1000)) / 1000.0)),
+                "value": (
+                    min(
+                        100.0,
+                        max(1.0, 1.0 + secrets.randbelow(int(99.0 * 1000)) / 1000.0),
+                    )
+                ),
             }
 
             transaction = blockchain_manager.create_transaction(node_id, data)
@@ -294,9 +313,7 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
     ns3_adapter = None
     if ns3_path:
         try:
-            logger.info(
-                "Initializing NS3Adapter with path: %s", ns3_path
-            )
+            logger.info("Initializing NS3Adapter with path: %s", ns3_path)
             ns3_adapter = NS3Adapter(
                 config_file=os.path.join(get_config_dir(), "distributed.json"),
                 ns3_path=ns3_path,

@@ -108,7 +108,8 @@ def load_config(config_path):
         return {}
     except PermissionError:
         logger.error(
-            "Read permission error: cannot read file %s", config_path,
+            "Read permission error: cannot read file %s",
+            config_path,
         )
         logger.error("Please check read permissions for the configuration file")
         return {}
@@ -219,7 +220,8 @@ def run_simulation(args, config):
         script_name = os.path.basename(script_path).replace(".cc", "")
         if ns3_adapter.compile_ns3_script(script_name):
             logger.info(
-                "Script %s successfully compiled", script_name,
+                "Script %s successfully compiled",
+                script_name,
             )
         else:
             logger.warning(
@@ -312,10 +314,16 @@ def run_simulation(args, config):
             if "base_station" not in node_id:  # Don't move base station
                 # Random movement within a small radius
                 dx = (
-                    (-5) + (secrets.randbelow(int((5 - -5) * 1000)) / 1000.0)
+                    min(
+                        5.0,
+                        max(-5.0, -5.0 + secrets.randbelow(int(10.0 * 1000)) / 1000.0),
+                    )
                 ) * time_step
                 dy = (
-                    (-5) + (secrets.randbelow(int((5 - -5) * 1000)) / 1000.0)
+                    min(
+                        5.0,
+                        max(-5.0, -5.0 + secrets.randbelow(int(10.0 * 1000)) / 1000.0),
+                    )
                 ) * time_step
                 dz = 0  # Default, movement only in XY plane
 
@@ -387,7 +395,8 @@ def run_simulation(args, config):
             processed = interface.process_pending_transactions()
             if processed > 0:
                 logger.debug(
-                    "Processed %s transactions in interface", processed,
+                    "Processed %s transactions in interface",
+                    processed,
                 )
 
             processed_blockchain = blocksim_adapter.process_pending_transactions()
@@ -408,7 +417,8 @@ def run_simulation(args, config):
             blockchain_state = blocksim_adapter.get_blockchain_state()
 
             logger.info(
-                "Simulation time: %(current_time).2f/%s", total_time,
+                "Simulation time: %(current_time).2f/%s",
+                total_time,
             )
             logger.info(
                 "Nodes in network: %(len(net_state['nodes']))s",
@@ -461,7 +471,8 @@ def run_simulation(args, config):
     if args.animation and ns3_adapter:
         animation_file = os.path.join(output_dir, f"animation_{timestamp}.xml")
         logger.info(
-            "Animation file will be saved as: %s", animation_file,
+            "Animation file will be saved as: %s",
+            animation_file,
         )
         logger.info("To view animation, start NetAnim and open the file")
 
@@ -523,7 +534,8 @@ def main():
 
     if results:
         logger.info(
-            "Simulation results saved to %s", args.output_dir,
+            "Simulation results saved to %s",
+            args.output_dir,
         )
         logger.info(
             "Simulation results timestamp: %(results['timestamp'])s",
