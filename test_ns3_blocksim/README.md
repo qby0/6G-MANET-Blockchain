@@ -93,3 +93,16 @@ The `examples/` directory contains detailed examples of using the system for dif
 
 ## Integration Architecture
 The integration of NS-3 and BlockSim is implemented through an intermediate interface that synchronizes events between the two simulators and ensures data consistency.
+
+## Random Number Distribution Improvements
+The simulation uses improved random number generation to ensure proper distribution of values for node positions, movement and transaction parameters. A fix for the random number generation has been implemented to:
+
+- Ensure correct uniform distribution across the specified range
+- Avoid potential biases in the simulation results
+- Properly handle min/max boundaries in random value generation
+- Improve statistical validity of simulation outcomes
+
+To verify the random number distribution, run:
+```bash
+python3 test_random_improved.py
+```

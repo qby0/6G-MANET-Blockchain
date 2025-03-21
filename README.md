@@ -191,6 +191,14 @@ The system is a hybrid network infrastructure that includes:
    2. Multi-stage verification of updates by key validators
    3. Gradual implementation with the possibility of rollback when problems are detected
 
-## 12. Conclusion
+## 12. Simulation Improvements
+
+1. **Random number distribution**:
+   1. Enhanced uniform distribution for node positions and movement patterns
+   2. Corrected boundary handling in random value generation
+   3. Statistically verified distribution for simulation parameters
+   4. Improved quality of simulation results through better randomization
+
+## 13. Conclusion
 
 This algorithm ensures reliable operation of a hybrid network that combines a stationary 6G infrastructure and a dynamic MANET network through blockchain technology. The system guarantees security, adaptability to changes, efficient resource utilization, and fault tolerance, providing transparency and trust between all network participants.
