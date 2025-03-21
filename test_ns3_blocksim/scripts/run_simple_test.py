@@ -51,7 +51,7 @@ def find_ns3_path():
     # Проверяем каждый потенциальный путь
     for path in potential_paths:
         if path.exists() and (path / "ns3").exists():
-            logger.info(f"Автоматически найден путь к NS-3: {path}")
+            logger.info(f"Automatically found NS-3 path: {path}")
             return str(path)
     
     # Проверяем системные пути
@@ -59,7 +59,7 @@ def find_ns3_path():
     if ns3_cmd:
         # Если ns3 найден в системном PATH, определяем его директорию
         ns3_dir = str(Path(ns3_cmd).parent)
-        logger.info(f"Найден NS-3 в системном PATH: {ns3_dir}")
+        logger.info(f"Found NS-3 in system PATH: {ns3_dir}")
         return ns3_dir
     
     return None
@@ -149,7 +149,7 @@ main (int argc, char *argv[])
     with open(temp_file, 'w') as f:
         f.write(example_code)
     
-    logger.info(f"Создан тестовый файл симуляции: {temp_file}")
+    logger.info(f"Created test simulation file: {temp_file}")
     return temp_file
 
 def run_simple_simulation(ns3_path):
@@ -175,7 +175,7 @@ def run_simple_simulation(ns3_path):
             if os.path.exists(path):
                 example_file = path
                 example_name = os.path.splitext(os.path.basename(path))[0]
-                logger.info(f"Найден готовый пример: {example_name}")
+                logger.info(f"Found ready example: {example_name}")
                 break
         
         # Если не нашли готовый пример, создаем свой
@@ -188,9 +188,9 @@ def run_simple_simulation(ns3_path):
                 shutil.copy2(example_file, dst_file)
                 example_file = dst_file
                 example_name = "scratch/test-simulation"
-                logger.info(f"Пример скопирован в scratch: {dst_file}")
+                logger.info(f"Example copied to scratch: {dst_file}")
             else:
-                logger.error(f"Директория scratch не найдена: {scratch_dir}")
+                logger.error(f"Scratch directory not found: {scratch_dir}")
                 return False
         else:
             # Используем относительный путь для примера
@@ -201,7 +201,7 @@ def run_simple_simulation(ns3_path):
         ns3_executable = os.path.join(ns3_path, "ns3")
         cmd = [ns3_executable, "run", example_name]
         
-        logger.info(f"Запуск тестовой симуляции: {' '.join(cmd)}")
+        logger.info(f"Running test simulation: {' '.join(cmd)}")
         
         process = subprocess.run(
             cmd,
@@ -212,23 +212,23 @@ def run_simple_simulation(ns3_path):
         )
         
         if process.returncode == 0:
-            logger.info("Тестовая симуляция успешно завершена!")
-            logger.info("Вывод симуляции:")
+            logger.info("Test simulation completed successfully!")
+            logger.info("Simulation output:")
             for line in process.stdout.splitlines():
                 logger.info(f"  {line}")
             return True
         else:
-            logger.error(f"Тестовая симуляция завершилась с ошибкой: {process.returncode}")
-            logger.error(f"Вывод stderr:")
+            logger.error(f"Test simulation failed with error: {process.returncode}")
+            logger.error(f"Stderr output:")
             for line in process.stderr.splitlines():
                 logger.error(f"  {line}")
             return False
             
     except subprocess.TimeoutExpired:
-        logger.error("Превышено время выполнения симуляции (таймаут)")
+        logger.error("Simulation execution timeout exceeded")
         return False
     except Exception as e:
-        logger.error(f"Ошибка при запуске тестовой симуляции: {e}", exc_info=True)
+        logger.error(f"Error running test simulation: {e}", exc_info=True)
         return False
 
 def main():
@@ -247,24 +247,24 @@ def main():
             # Если не найден, пробуем переменную окружения
             ns3_path = os.environ.get("NS3_DIR")
             if not ns3_path:
-                logger.error("Не удалось автоматически определить путь к NS-3. Используйте --ns3-path или установите переменную окружения NS3_DIR")
+                logger.error("Failed to automatically detect NS-3 path. Please use --ns3-path or set the NS3_DIR environment variable")
                 sys.exit(1)
     
     # Проверяем существование директории NS-3
     if not os.path.exists(ns3_path):
-        logger.error(f"Директория NS-3 не найдена: {ns3_path}")
+        logger.error(f"NS-3 directory not found: {ns3_path}")
         sys.exit(1)
     
-    logger.info(f"Используем NS-3 из директории: {ns3_path}")
+    logger.info(f"Using NS-3 from directory: {ns3_path}")
     
     # Запускаем тестовую симуляцию
     result = run_simple_simulation(ns3_path)
     
     if result:
-        logger.info("Тестирование NS-3 успешно завершено!")
+        logger.info("NS-3 testing completed successfully!")
         sys.exit(0)
     else:
-        logger.error("Тестирование NS-3 завершилось с ошибками")
+        logger.error("NS-3 testing failed with errors")
         sys.exit(1)
 
 if __name__ == "__main__":

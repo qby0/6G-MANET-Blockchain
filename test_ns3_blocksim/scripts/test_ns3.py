@@ -93,7 +93,7 @@ def find_ns3_path():
     # Проверяем каждый потенциальный путь
     for path in potential_paths:
         if path.exists() and (path / "ns3").exists():
-            logger.info(f"Автоматически найден путь к NS-3: {path}")
+            logger.info(f"Automatically found NS-3 path: {path}")
             return str(path)
     
     return None
@@ -118,15 +118,15 @@ def main():
             # Если не найден, пробуем переменную окружения
             ns3_path = os.environ.get("NS3_DIR")
             if not ns3_path:
-                logger.error("Не удалось автоматически определить путь к NS-3. Используйте --ns3-path или установите переменную окружения NS3_DIR")
+                logger.error("Failed to automatically detect NS-3 path. Please use --ns3-path or set the NS3_DIR environment variable")
                 sys.exit(1)
     
     # Проверяем существование директории NS-3
     if not os.path.exists(ns3_path):
-        logger.error(f"Директория NS-3 не найдена: {ns3_path}")
+        logger.error(f"NS-3 directory not found: {ns3_path}")
         sys.exit(1)
     
-    logger.info(f"Используем NS-3 из директории: {ns3_path}")
+    logger.info(f"Using NS-3 from directory: {ns3_path}")
     
     # Создаем выходную директорию, если не указана
     if not args.output_dir:
@@ -137,39 +137,39 @@ def main():
         output_dir = args.output_dir
         os.makedirs(output_dir, exist_ok=True)
     
-    logger.info(f"Результаты будут сохранены в: {output_dir}")
+    logger.info(f"Results will be saved to: {output_dir}")
     
     try:
         # Создаем адаптер NS-3
-        logger.info("Инициализация NS-3 адаптера...")
+        logger.info("Initializing NS-3 adapter...")
         adapter = NS3Adapter(ns3_path)
         
         # Создаем скрипт для симуляции MANET
-        logger.info("Создание скрипта симуляции MANET...")
+        logger.info("Creating MANET simulation script...")
         script_path = adapter.create_ns3_manet_script()
         
         # Проверка базовой работоспособности NS-3
-        logger.info("Проверка работоспособности NS-3...")
+        logger.info("Checking NS-3 functionality...")
         if not os.path.exists(os.path.join(ns3_path, "ns3")):
-            logger.error("Исполняемый файл NS-3 не найден. Убедитесь, что NS-3 установлен корректно.")
+            logger.error("NS-3 executable not found. Make sure NS-3 is installed correctly.")
             sys.exit(1)
         
         # Тест компиляции скрипта
-        logger.info("Тестирование компиляции скрипта...")
+        logger.info("Testing script compilation...")
         if not adapter.compile_ns3_script("manet-blockchain-sim"):
-            logger.error("Ошибка компиляции скрипта NS-3.")
+            logger.error("Error compiling NS-3 script.")
             sys.exit(1)
         
         # Создаем тестовый сценарий
-        logger.info("Создание тестового сценария симуляции...")
+        logger.info("Creating test simulation scenario...")
         nodes, links, params = create_test_scenario()
         
         # Создаем файл сценария
-        logger.info("Создание файла сценария для NS-3...")
+        logger.info("Creating scenario file for NS-3...")
         scenario_file = adapter.create_scenario_file(nodes, links, params)
         
         # Запускаем симуляцию
-        logger.info(f"Запуск тестовой симуляции на {args.duration} секунд...")
+        logger.info(f"Running test simulation for {args.duration} seconds...")
         results = adapter.run_simulation(
             scenario_file, 
             duration=args.duration,
@@ -182,15 +182,15 @@ def main():
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2)
         
-        logger.info(f"Тестирование завершено успешно. Результаты сохранены в {results_file}")
-        logger.info("Краткие результаты симуляции:")
-        logger.info(f"- Время симуляции: {results.get('simulation_time', 'N/A')}")
-        logger.info(f"- Пакетов отправлено: {results.get('network_stats', {}).get('packets_sent', 'N/A')}")
-        logger.info(f"- Пакетов получено: {results.get('network_stats', {}).get('packets_received', 'N/A')}")
-        logger.info(f"- Средняя задержка: {results.get('network_stats', {}).get('average_delay', 'N/A')}")
+        logger.info(f"Testing completed successfully. Results saved to {results_file}")
+        logger.info("Brief simulation results:")
+        logger.info(f"- Simulation time: {results.get('simulation_time', 'N/A')}")
+        logger.info(f"- Packets sent: {results.get('network_stats', {}).get('packets_sent', 'N/A')}")
+        logger.info(f"- Packets received: {results.get('network_stats', {}).get('packets_received', 'N/A')}")
+        logger.info(f"- Average delay: {results.get('network_stats', {}).get('average_delay', 'N/A')}")
         
     except Exception as e:
-        logger.error(f"Ошибка при тестировании NS-3: {e}", exc_info=True)
+        logger.error(f"Error testing NS-3: {e}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
