@@ -28,10 +28,10 @@ This project implements a simulation of a blockchain system operating at the jun
 
 ## Documentation
 - [Implementation Status](test_ns3_blocksim/README_IMPLEMENTATION_STATUS_EN.md) - Current state of implementation
-- [Technical README](test_ns3_blocksim/README_EN.md) - Technical details and usage instructions
+- [Technical README](test_ns3_blocksim/README.md) - Technical details and usage instructions
 
 ## Getting Started
-See the [Technical README](test_ns3_blocksim/README_EN.md) for detailed installation and setup instructions.
+See the [Technical README](test_ns3_blocksim/README.md) for detailed installation and setup instructions.
 
 ## License
 [MIT License](LICENSE)
@@ -63,7 +63,7 @@ See the [Technical README](test_ns3_blocksim/README_EN.md) for detailed installa
   - `/external` - Внешние зависимости (NS-3)
 
 ## Документация
-- [Статус реализации](test_ns3_blocksim/README_IMPLEMENTATION_STATUS.md) - Текущее состояние реализации
+- [Статус реализации](test_ns3_blocksim/README_IMPLEMENTATION_STATUS_EN.md) - Текущее состояние реализации
 - [Технический README](test_ns3_blocksim/README.md) - Технические детали и инструкции по использованию
 
 ## Начало работы
