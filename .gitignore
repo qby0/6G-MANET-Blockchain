@@ -16,11 +16,23 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 venv/
 .env
+
+# Virtual Environments
+venv/
+env/
+ENV/
+*_venv/
+code_quality_venv/
+
+# Environment variables
+.env
+.env.*
 
 # NS-3
 scratch-simulator
@@ -63,3 +75,33 @@ test_ns3_blocksim/external/ns-3/cmake-cache/
 
 # NS-3 directory (contains its own git repository)
 test_ns3_blocksim/external/ns-3/
+test_ns3_blocksim/external/netanim/
+
+# Logs and databases
+*.sqlite3
+*.sqlite
+*.db
+
+# Results and temporary files
+results/*.json
+code_analysis_reports/
+*.orig
+.*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# OS specific
+Thumbs.db
+desktop.ini
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# Fix script outputs
+fix_*.py
