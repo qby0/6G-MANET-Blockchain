@@ -44,7 +44,7 @@ class DistributedBlockchainManager:
                 default_config.update(config)
                 return default_config
         except Exception as e:
-            self.logger.error("Error loading config: %(e)s", {e: e})
+            self.logger.error("Error loading config: %s", e)
             return default_config
 
     def register_node(
@@ -56,8 +56,8 @@ class DistributedBlockchainManager:
         """
         if node_id in self.nodes:
             self.logger.warning(
-                "Node %(node_id)s already exists, updating properties",
-                {node_id: node_id},
+                "Node %s already exists, updating properties",
+                node_id,
             )
             self.nodes[node_id].node_type = node_type
             self.nodes[node_id].position = position
@@ -73,17 +73,14 @@ class DistributedBlockchainManager:
         )
 
         self.nodes[node_id] = node
-        self.logger.info(
-            "Registered node %(node_id)s of type %(node_type)s",
-            {node_id: node_id, node_type: node_type},
-        )
+        self.logger.info("Registered node %s of type %s", node_id, node_type)
 
         return node_id
 
     def update_node_position(self, node_id: str, position: tuple) -> bool:
-        """Update a node's position"""
+        """Update the position of a node"""
         if node_id not in self.nodes:
-            self.logger.warning("Node %(node_id)s does not exist", {node_id: node_id})
+            self.logger.warning("Node %s does not exist", node_id)
             return False
 
         self.nodes[node_id].update_position(position)
@@ -117,7 +114,7 @@ class DistributedBlockchainManager:
             self.logger.info("Distributed blockchain initialization completed")
             return True
         except Exception as e:
-            self.logger.error("Error during blockchain initialization: %(e)s", {e: e})
+            self.logger.error("Error during blockchain initialization: %s", str(e))
             return False
 
     def update_topology(self) -> None:
@@ -132,9 +129,7 @@ class DistributedBlockchainManager:
         Returns the transaction dictionary if successful
         """
         if node_id not in self.nodes or node_id not in self.node_blockchains:
-            self.logger.warning(
-                "Node %(node_id)s not found or has no blockchain", {node_id: node_id}
-            )
+            self.logger.warning("Node %s not found or has no blockchain", node_id)
             return None
 
         # Create signed transaction
@@ -181,9 +176,7 @@ class DistributedBlockchainManager:
         Create a new block from pending transactions for a node
         """
         if node_id not in self.node_blockchains:
-            self.logger.warning(
-                "Node %(node_id)s has no blockchain", {node_id: node_id}
-            )
+            self.logger.warning("Node %s has no blockchain", node_id)
             return None
 
         blockchain = self.node_blockchains[node_id]
@@ -312,20 +305,16 @@ class DistributedBlockchainManager:
                 blockchain_path = os.path.join(state_dir, f"blockchain_{node_id}.json")
                 blockchain.save_to_file(blockchain_path)
 
-            self.logger.info(
-                "Network state saved to %(state_dir)s", {state_dir: state_dir}
-            )
+            self.logger.info("Network state saved to %s", state_dir)
             return True
         except Exception as e:
-            self.logger.error("Error saving state: %(e)s", {e: e})
+            self.logger.error("Error saving state: %s", str(e))
             return False
 
     def load_state(self, state_dir: str) -> bool:
         """Load the network state from saved files"""
         if not os.path.exists(state_dir):
-            self.logger.error(
-                "State directory %(state_dir)s does not exist", {state_dir: state_dir}
-            )
+            self.logger.warning("State directory %s does not exist", state_dir)
             return False
 
         try:
@@ -349,10 +338,8 @@ class DistributedBlockchainManager:
                     if blockchain:
                         self.node_blockchains[node_id] = blockchain
 
-            self.logger.info(
-                "Network state loaded from %(state_dir)s", {state_dir: state_dir}
-            )
+            self.logger.info("Network state loaded from %s", state_dir)
             return True
         except Exception as e:
-            self.logger.error("Error loading state: %(e)s", {e: e})
+            self.logger.error("Error loading state: %s", str(e))
             return False
