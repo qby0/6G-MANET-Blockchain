@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Скрипт для запуска базовой интегрированной симуляции NS-3 и BlockSim.
+Script for running integrated NS-3 and BlockSim simulation.
 """
 import os
 import sys
@@ -14,16 +14,16 @@ import numpy as np
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env
+# Load environment variables from .env
 load_dotenv()
 
-# Добавляем каталог моделей в путь для импорта
+# Add models directory to import path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.integration_interface import IntegrationInterface
 from models.ns3_adapter import NS3Adapter
 from models.blocksim_adapter import BlockSimAdapter
 
-# Настройка логирования
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -35,76 +35,76 @@ logging.basicConfig(
 logger = logging.getLogger("Simulation")
 
 def parse_arguments():
-    """Парсинг аргументов командной строки."""
-    parser = argparse.ArgumentParser(description='Интегрированная симуляция NS-3 и BlockSim')
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Integrated simulation of NS-3 and BlockSim')
     
     parser.add_argument('--config', type=str, default='../config/default.json',
-                      help='Путь к файлу конфигурации симуляции')
+                      help='Path to simulation configuration file')
     parser.add_argument('--duration', type=float, default=100.0,
-                      help='Продолжительность симуляции в секундах')
+                      help='Simulation duration in seconds')
     parser.add_argument('--time-step', type=float, default=1.0,
-                      help='Временной шаг симуляции в секундах')
+                      help='Simulation time step in seconds')
     parser.add_argument('--output-dir', type=str, default='../results',
-                      help='Директория для сохранения результатов')
+                      help='Directory to save results')
     parser.add_argument('--ns3-path', type=str, default=os.getenv('NS3_DIR'),
-                      help='Путь к установленному NS-3')
+                      help='Path to NS-3 installation')
     parser.add_argument('--debug', action='store_true',
-                      help='Включить режим отладки с более подробным логированием')
+                      help='Enable debug mode with more detailed logging')
     parser.add_argument('--animation', action='store_true',
-                      help='Включить анимацию NS-3 для визуализации')
+                      help='Enable NS-3 animation for visualization')
     parser.add_argument('--save-interim', action='store_true',
-                      help='Сохранять промежуточные результаты симуляции')
+                      help='Save interim simulation results')
     parser.add_argument('--rebuild', action='store_true',
-                      help='Пересобрать NS-3 перед запуском')
+                      help='Rebuild NS-3 before running')
     return parser.parse_args()
 
 def load_config(config_path):
-    """Загрузка конфигурационного файла."""
+    """Load configuration file."""
     try:
-        # Проверяем существование файла
+        # Check if file exists
         if not os.path.exists(config_path):
-            logger.error(f"Файл конфигурации {config_path} не найден. Используются значения по умолчанию.")
+            logger.error(f"Configuration file {config_path} not found. Using default values.")
             return {}
         
-        # Проверяем права на чтение
+        # Check read permissions
         if not os.access(config_path, os.R_OK):
-            logger.error(f"Ошибка прав доступа: отсутствуют права на чтение файла {config_path}")
-            logger.error("Пожалуйста, проверьте права доступа к файлу конфигурации")
+            logger.error(f"Read permission error: no read permissions for file {config_path}")
+            logger.error("Please check read permissions for the configuration file")
             return {}
         
-        # Пытаемся открыть файл и прочитать данные
+        # Try to open file and read data
         with open(config_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        logger.error(f"Файл конфигурации {config_path} не найден. Используются значения по умолчанию.")
+        logger.error(f"Configuration file {config_path} not found. Using default values.")
         return {}
     except PermissionError:
-        logger.error(f"Ошибка прав доступа: невозможно прочитать файл {config_path}")
-        logger.error("Пожалуйста, проверьте права доступа к файлу конфигурации")
+        logger.error(f"Read permission error: cannot read file {config_path}")
+        logger.error("Please check read permissions for the configuration file")
         return {}
     except json.JSONDecodeError:
-        logger.error(f"Ошибка декодирования JSON в файле {config_path}. Используются значения по умолчанию.")
+        logger.error(f"JSON decoding error in file {config_path}. Using default values.")
         return {}
     except Exception as e:
-        logger.error(f"Непредвиденная ошибка при чтении файла конфигурации: {e}")
+        logger.error(f"Unexpected error reading configuration file: {e}")
         return {}
 
 def setup_environment(config, ns3_path=None):
-    """Настройка окружения для симуляции."""
-    # Создаем директорию для результатов, если ещё не существует
+    """Setup environment for simulation."""
+    # Create results directory if it doesn't exist
     os.makedirs(config.get("output_dir", "../results"), exist_ok=True)
     
-    # Настройка NS-3
+    # Setup NS-3
     if ns3_path:
         os.environ["NS3_DIR"] = ns3_path
     
-    # Другие настройки окружения можно добавить здесь
+    # Other environment setup can be added here
     
-    logger.info("Окружение настроено")
+    logger.info("Environment setup complete")
 
 def create_network_topology(interface, config):
-    """Создание топологии сети на основе конфигурации."""
-    # Регистрируем базовую станцию
+    """Create network topology based on configuration."""
+    # Register base station
     interface.register_node(
         "base_station_1",
         (0.0, 0.0, 10.0),
@@ -112,7 +112,7 @@ def create_network_topology(interface, config):
         {"computational_power": 100, "storage": 1000, "battery": None}
     )
     
-    # Регистрируем валидаторов
+    # Register validators
     for i in range(config.get("num_validators", 3)):
         interface.register_node(
             f"validator_{i+1}",
@@ -121,7 +121,7 @@ def create_network_topology(interface, config):
             {"computational_power": 20, "storage": 100, "battery": 0.8}
         )
     
-    # Регистрируем обычные узлы
+    # Register regular nodes
     for i in range(config.get("num_regular_nodes", 10)):
         interface.register_node(
             f"node_{i+1}",
@@ -130,81 +130,81 @@ def create_network_topology(interface, config):
             {"computational_power": 10, "storage": 50, "battery": 0.9}
         )
     
-    # Создаем соединения между узлами
-    # Сначала соединяем базовую станцию с валидаторами
+    # Connect nodes
+    # First, connect base station to validators
     for i in range(config.get("num_validators", 3)):
         interface.register_connection("base_station_1", f"validator_{i+1}", 0.9, 100.0)
     
-    # Соединяем валидаторы между собой
+    # Connect validators between each other
     for i in range(config.get("num_validators", 3)):
         for j in range(i+1, config.get("num_validators", 3)):
             interface.register_connection(f"validator_{i+1}", f"validator_{j+1}", 0.8, 50.0)
     
-    # Соединяем обычные узлы с ближайшими валидаторами и между собой
+    # Connect regular nodes to nearest validators and between each other
     for i in range(config.get("num_regular_nodes", 10)):
-        # Соединяем с ближайшим валидатором
+        # Connect to nearest validator
         validator_idx = (i % config.get("num_validators", 3)) + 1
         interface.register_connection(f"node_{i+1}", f"validator_{validator_idx}", 0.7, 10.0)
         
-        # Соединяем с несколькими соседними узлами
-        for j in range(1, 4):  # Соединяем с 3 соседними узлами
+        # Connect to several neighboring nodes
+        for j in range(1, 4):  # Connect to 3 neighboring nodes
             neighbor_idx = (i + j) % config.get("num_regular_nodes", 10) + 1
             interface.register_connection(f"node_{i+1}", f"node_{neighbor_idx}", 0.6, 5.0)
     
-    logger.info("Топология сети создана")
+    logger.info("Network topology created")
 
 def run_simulation(args, config):
-    """Выполнение симуляции."""
-    # Создаем интерфейс интеграции
+    """Run simulation."""
+    # Create integration interface
     interface = IntegrationInterface()
     
-    # Создаем адаптеры для NS-3 и BlockSim
+    # Create NS-3 and BlockSim adapters
     try:
         ns3_adapter = NS3Adapter(args.ns3_path)
         
-        # Если указан флаг --rebuild, перестраиваем NS-3
+        # If rebuild flag is specified, rebuild NS-3
         if args.rebuild:
-            logger.info("Начинаем пересборку NS-3 с оптимизациями...")
+            logger.info("Starting NS-3 rebuild with optimizations...")
             if ns3_adapter.configure_and_build():
-                logger.info("NS-3 успешно пересобран")
+                logger.info("NS-3 successfully rebuilt")
             else:
-                logger.error("Ошибка при сборке NS-3")
+                logger.error("NS-3 build error")
                 return None
         
-        # Создаем скрипт для симуляции MANET с поддержкой блокчейна
+        # Create script for MANET simulation with blockchain support
         script_path = ns3_adapter.create_ns3_manet_script()
         
-        # Компилируем скрипт
+        # Compile script
         script_name = os.path.basename(script_path).replace('.cc', '')
         if ns3_adapter.compile_ns3_script(script_name):
-            logger.info(f"Скрипт {script_name} успешно скомпилирован")
+            logger.info(f"Script {script_name} successfully compiled")
         else:
-            logger.warning(f"Не удалось скомпилировать скрипт {script_name}. Используем имеющиеся скрипты.")
+            logger.warning(f"Failed to compile script {script_name}. Using existing scripts.")
             
-        logger.info("NS-3 адаптер успешно инициализирован")
+        logger.info("NS-3 adapter successfully initialized")
     except Exception as e:
-        logger.warning(f"Не удалось инициализировать NS-3 адаптер: {e}")
-        logger.warning("Будет использоваться эмуляция NS-3")
+        logger.warning(f"Failed to initialize NS-3 adapter: {e}")
+        logger.warning("NS-3 emulation will be used")
         ns3_adapter = None
     
     blocksim_adapter = BlockSimAdapter()
-    logger.info("BlockSim адаптер инициализирован")
+    logger.info("BlockSim adapter initialized")
     
-    # Создаем топологию сети
+    # Create network topology
     create_network_topology(interface, config)
     
-    # Инициализируем блокчейн
+    # Initialize blockchain
     consensus_type = config.get("consensus_type", "PoA")
     num_validators = config.get("num_validators", 3)
     block_interval = config.get("block_interval", 5.0)
     
     blocksim_adapter.initialize_blockchain(consensus_type, num_validators, block_interval)
     
-    # Синхронизируем узлы между интерфейсом и BlockSim
+    # Synchronize nodes between interface and BlockSim
     for node_id, node_info in interface.nodes.items():
         node_type = "validator" if node_info["type"] == "validator" else "regular"
         if node_info["type"] == "base_station":
-            node_type = "validator"  # Базовая станция считается валидатором
+            node_type = "validator"  # Base station is considered a validator
             
         resources = {
             "computational_power": node_info["capabilities"].get("computational_power", 10),
@@ -212,17 +212,17 @@ def run_simulation(args, config):
         }
         blocksim_adapter.register_node(node_id, node_type, resources)
     
-    # Сценарий симуляции
+    # Simulation scenario
     total_time = args.duration
     time_step = args.time_step
     current_time = 0.0
     
-    # Создаем выходную директорию с временной меткой для текущего запуска
+    # Create output directory with timestamp for current run
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     output_dir = os.path.join(args.output_dir, f"simulation_{timestamp}")
     os.makedirs(output_dir, exist_ok=True)
     
-    # Генерируем файл сценария для NS-3 (если NS-3 доступен)
+    # Generate scenario file for NS-3 (if NS-3 is available)
     network_params = {
         "simulation_time": total_time,
         "time_step": time_step,
@@ -238,8 +238,8 @@ def run_simulation(args, config):
             network_params
         )
         
-        # Запускаем NS-3 симуляцию в фоновом режиме
-        logger.info("Запуск симуляции NS-3...")
+        # Start NS-3 simulation in background mode
+        logger.info("Starting NS-3 simulation...")
         ns3_results = ns3_adapter.run_simulation(
             scenario_file, 
             total_time, 
@@ -247,68 +247,68 @@ def run_simulation(args, config):
             output_dir
         )
     
-    # Основной цикл симуляции
-    logger.info(f"Начало симуляции. Продолжительность: {total_time} секунд, шаг: {time_step} секунд")
-    node_positions = {}  # Для хранения текущих позиций узлов
+    # Main simulation loop
+    logger.info(f"Starting simulation. Duration: {total_time} seconds, step: {time_step} seconds")
+    node_positions = {}  # For storing current node positions
     
-    # Инициализация начальных позиций
+    # Initialize initial positions
     for node_id, node_info in interface.nodes.items():
         node_positions[node_id] = list(node_info["position"])
     
     while current_time < total_time:
-        # Обновляем текущее время
+        # Update current time
         interface.advance_time(time_step)
         blocksim_adapter.advance_time(time_step)
         current_time += time_step
         
-        # Симулируем движение мобильных узлов (кроме базовой станции)
+        # Simulate mobile node movement (excluding base station)
         for node_id, position in node_positions.items():
-            if "base_station" not in node_id:  # Не перемещаем базовую станцию
-                # Случайное перемещение в пределах небольшого радиуса
+            if "base_station" not in node_id:  # Don't move base station
+                # Random movement within a small radius
                 dx = random.uniform(-5, 5) * time_step
                 dy = random.uniform(-5, 5) * time_step
-                dz = 0  # По умолчанию, движение только в плоскости XY
+                dz = 0  # Default, movement only in XY plane
                 
-                # Ограничиваем перемещение в пределах разумной области
+                # Limit movement within reasonable area
                 new_x = max(0, min(500, position[0] + dx))
                 new_y = max(0, min(500, position[1] + dy))
-                new_z = position[2]  # Высота не меняется
+                new_z = position[2]  # Height doesn't change
                 
-                # Обновляем позицию
+                # Update position
                 new_position = [new_x, new_y, new_z]
                 node_positions[node_id] = new_position
                 interface.update_node_position(node_id, tuple(new_position))
                 
-                # Обновляем качество соединений на основе расстояния
+                # Update connection quality based on distance
                 for other_id, other_pos in node_positions.items():
                     if node_id != other_id:
-                        # Рассчитываем расстояние между узлами
+                        # Calculate distance between nodes
                         distance = np.sqrt((new_x - other_pos[0])**2 + 
                                           (new_y - other_pos[1])**2 + 
                                           (new_z - other_pos[2])**2)
                         
-                        # Качество связи обратно пропорционально расстоянию
-                        # Максимальное расстояние для связи - 100 единиц
+                        # Connection quality inversely proportional to distance
+                        # Maximum distance for connection - 100 units
                         if distance <= 100:
                             quality = max(0.1, 1.0 - distance / 100.0)
-                            # Пропускная способность зависит от качества связи
+                            # Bandwidth depends on connection quality
                             bandwidth = 50.0 * quality
                             
-                            # Обновляем соединение между узлами
+                            # Update connection between nodes
                             connection_ids = [f"{min(node_id, other_id)}_{max(node_id, other_id)}"]
                             interface.register_connection(node_id, other_id, quality, bandwidth)
                         
-        # Генерируем активность узлов каждые 10 секунд
-        if int(current_time * 10) % 100 == 0:  # Каждые 10 секунд (с учетом шага симуляции)
-            # Создаем несколько транзакций
+        # Generate node activity every 10 seconds
+        if int(current_time * 10) % 100 == 0:  # Every 10 seconds (considering simulation step)
+            # Create several transactions
             for _ in range(5):
-                # Выбираем случайные узлы для транзакции
+                # Select random nodes for transaction
                 all_node_ids = list(interface.nodes.keys())
                 if len(all_node_ids) >= 2:
                     source_id = random.choice(all_node_ids)
                     target_id = random.choice([n for n in all_node_ids if n != source_id])
                     
-                    # Создаем транзакцию через интерфейс
+                    # Create transaction through interface
                     tx_data = {
                         "type": "data_transfer",
                         "content": f"Transaction at time {current_time:.2f}",
@@ -317,61 +317,61 @@ def run_simulation(args, config):
                     }
                     tx_id = interface.send_transaction(source_id, target_id, tx_data)
                     
-                    # Создаем соответствующую транзакцию в BlockSim
+                    # Create corresponding transaction in BlockSim
                     if tx_id:
                         blocksim_adapter.create_transaction(source_id, target_id, tx_data)
             
-            # Обрабатываем ожидающие транзакции
+            # Process pending transactions
             processed = interface.process_pending_transactions()
             if processed > 0:
-                logger.debug(f"Обработано {processed} транзакций в интерфейсе")
+                logger.debug(f"Processed {processed} transactions in interface")
             
             processed_blockchain = blocksim_adapter.process_pending_transactions()
             if processed_blockchain > 0:
-                logger.debug(f"Обработано {processed_blockchain} транзакций в блокчейне")
-                # Создаем блок с обработанными транзакциями
+                logger.debug(f"Processed {processed_blockchain} transactions in blockchain")
+                # Create block with processed transactions
                 block = blocksim_adapter.create_block()
                 if block:
-                    logger.info(f"Создан новый блок {block['index']} валидатором {block['validator']}")
+                    logger.info(f"New block {block['index']} created by validator {block['validator']}")
         
-        # Вывод текущего состояния каждые 20 секунд
+        # Output current state every 20 seconds
         if int(current_time * 10) % 200 == 0 or current_time >= total_time - time_step:
             net_state = interface.get_network_state()
             blockchain_state = blocksim_adapter.get_blockchain_state()
             
-            logger.info(f"Время симуляции: {current_time:.2f}/{total_time}")
-            logger.info(f"Узлов в сети: {len(net_state['nodes'])}")
-            logger.info(f"Соединений в сети: {len(net_state['links'])}")
-            logger.info(f"Транзакций в сети: {len(net_state['transactions'])}")
-            logger.info(f"Блоков в блокчейне: {blockchain_state['blocks_count']}")
-            logger.info(f"Ожидающих транзакций: {blockchain_state['pending_transactions']}")
-            logger.info(f"Подтвержденных транзакций: {blockchain_state['confirmed_transactions']}")
+            logger.info(f"Simulation time: {current_time:.2f}/{total_time}")
+            logger.info(f"Nodes in network: {len(net_state['nodes'])}")
+            logger.info(f"Connections in network: {len(net_state['links'])}")
+            logger.info(f"Transactions in network: {len(net_state['transactions'])}")
+            logger.info(f"Blocks in blockchain: {blockchain_state['blocks_count']}")
+            logger.info(f"Pending transactions: {blockchain_state['pending_transactions']}")
+            logger.info(f"Confirmed transactions: {blockchain_state['confirmed_transactions']}")
             
-            # Сохраняем промежуточные результаты
+            # Save interim results
             if args.save_interim:
                 interim_output = os.path.join(output_dir, f"interim_{int(current_time)}")
                 os.makedirs(interim_output, exist_ok=True)
                 interface.save_state(os.path.join(interim_output, "network_state.json"))
                 blocksim_adapter.save_state(os.path.join(interim_output, "blockchain_state.json"))
     
-    logger.info("Симуляция завершена")
+    logger.info("Simulation completed")
     
-    # Сохраняем результаты
+    # Save results
     network_state_file = os.path.join(output_dir, f"network_state_{timestamp}.json")
     interface.save_state(network_state_file)
     
-    # Сохраняем состояние блокчейна
+    # Save blockchain state
     blockchain_state_file = os.path.join(output_dir, f"blockchain_state_{timestamp}.json")
     blocksim_adapter.save_state(blockchain_state_file)
     
-    # Если включена анимация, проверяем файл анимации
+    # If animation is enabled, check animation file
     animation_file = None
     if args.animation and ns3_adapter:
         animation_file = os.path.join(output_dir, f"animation_{timestamp}.xml")
-        logger.info(f"Файл анимации будет сохранен как: {animation_file}")
-        logger.info("Для просмотра анимации запустите NetAnim и откройте файл")
+        logger.info(f"Animation file will be saved as: {animation_file}")
+        logger.info("To view animation, start NetAnim and open the file")
     
-    # Сохраняем сводную информацию о симуляции
+    # Save summary information about simulation
     summary = {
         "timestamp": timestamp,
         "duration": total_time,
@@ -395,36 +395,36 @@ def run_simulation(args, config):
     }
 
 def main():
-    """Основная функция."""
-    # Парсинг аргументов командной строки
+    """Main function."""
+    # Parse command line arguments
     args = parse_arguments()
     
-    # Настройка уровня логирования
+    # Setup logging level
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    # Загрузка конфигурации
+    # Load configuration
     config = load_config(args.config)
     
-    # Добавляем аргументы командной строки к конфигурации
+    # Add command line arguments to configuration
     config["duration"] = args.duration
     config["time_step"] = args.time_step
     config["output_dir"] = args.output_dir
     config["animation_enabled"] = args.animation
     
-    # Настройка окружения
+    # Setup environment
     setup_environment(config, args.ns3_path)
     
-    # Запуск симуляции
+    # Run simulation
     results = run_simulation(args, config)
     
     if results:
-        logger.info(f"Результаты симуляции сохранены в {args.output_dir}")
-        logger.info(f"Временная метка результатов: {results['timestamp']}")
+        logger.info(f"Simulation results saved to {args.output_dir}")
+        logger.info(f"Simulation results timestamp: {results['timestamp']}")
         if results.get('animation_file'):
-            logger.info(f"Файл анимации: {results['animation_file']}")
+            logger.info(f"Animation file: {results['animation_file']}")
     else:
-        logger.error("Симуляция завершилась с ошибкой")
+        logger.error("Simulation ended with error")
         return 1
     
     return 0

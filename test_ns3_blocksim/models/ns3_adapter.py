@@ -1,6 +1,6 @@
 """
-Адаптер для интеграции с NS-3.
-Обеспечивает управление симуляцией NS-3 из Python.
+Adapter for NS-3 integration.
+Provides management of NS-3 simulation from Python.
 """
 import os
 import sys
@@ -10,7 +10,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Any, Optional, Tuple
 
-# Настройка логирования
+# Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -18,31 +18,31 @@ logging.basicConfig(
 logger = logging.getLogger("NS3Adapter")
 
 class NS3Adapter:
-    """Класс для взаимодействия с NS-3"""
+    """Class for interaction with NS-3"""
     
     def __init__(self, ns3_path: str = None):
         """
-        Инициализирует адаптер для NS-3.
+        Initializes the NS-3 adapter.
         
         Args:
-            ns3_path (str, optional): Путь к директории NS-3. 
-                                      По умолчанию ищется в переменной окружения NS3_DIR.
+            ns3_path (str, optional): Path to NS-3 directory.
+                                      By default, looks for NS3_DIR environment variable.
         """
-        # Определяем путь к NS-3
+        # Define the path to NS-3
         if ns3_path:
             self.ns3_path = ns3_path
         else:
             self.ns3_path = os.environ.get("NS3_DIR", None)
             if not self.ns3_path:
-                raise EnvironmentError("Не задан путь к NS-3. Укажите его как аргумент или установите переменную окружения NS3_DIR.")
+                raise EnvironmentError("NS-3 path not specified. Provide it as an argument or set the NS3_DIR environment variable.")
 
-        # Проверяем существование директории
+        # Check if the directory exists
         if not os.path.exists(self.ns3_path):
-            raise FileNotFoundError(f"Директория NS-3 не найдена по пути: {self.ns3_path}")
+            raise FileNotFoundError(f"NS-3 directory not found at: {self.ns3_path}")
         
-        logger.info(f"NS-3 адаптер инициализирован с путем: {self.ns3_path}")
+        logger.info(f"NS-3 adapter initialized with path: {self.ns3_path}")
         
-        # Переменные для хранения состояния симуляции
+        # Variables for storing simulation state
         self.simulation_running = False
         self.current_nodes = {}
         self.current_links = {}
@@ -50,17 +50,17 @@ class NS3Adapter:
         
     def configure_and_build(self) -> bool:
         """
-        Конфигурирует и собирает NS-3 с оптимизациями.
+        Configures and builds NS-3 with optimizations.
         
         Returns:
-            bool: True если сборка успешна, False в противном случае
+            bool: True if build is successful, False otherwise
         """
         try:
-            # Настройка ccache
+            # Setup ccache
             os.environ["CCACHE_DIR"] = os.path.join(self.ns3_path, ".ccache")
             os.environ["CCACHE_MAXSIZE"] = "50G"
             
-            # Конфигурация с оптимизациями
+            # Configuration with optimizations
             configure_cmd = [
                 "./ns3",
                 "configure",
@@ -75,46 +75,46 @@ class NS3Adapter:
             
             subprocess.run(configure_cmd, cwd=self.ns3_path, check=True)
             
-            # Параллельная сборка
+            # Parallel build
             build_cmd = ["./ns3", "build", f"-j{os.cpu_count()}"]
             subprocess.run(build_cmd, cwd=self.ns3_path, check=True)
             
-            logger.info("NS-3 успешно сконфигурирован и собран")
+            logger.info("NS-3 successfully configured and built")
             return True
             
         except subprocess.CalledProcessError as e:
-            logger.error(f"Ошибка при сборке NS-3: {e}")
+            logger.error(f"NS-3 build error: {e}")
             return False
 
     def create_scenario_file(self, nodes: Dict[str, Dict], 
                            links: Dict[str, Dict],
                            params: Dict[str, Any]) -> str:
         """
-        Создает временный файл сценария для NS-3 на основе предоставленных данных.
+        Creates a temporary scenario file for NS-3 based on provided data.
         
         Args:
-            nodes (Dict[str, Dict]): Словарь с информацией об узлах
-            links (Dict[str, Dict]): Словарь с информацией о связях
-            params (Dict[str, Any]): Параметры симуляции
+            nodes (Dict[str, Dict]): Dictionary with node information
+            links (Dict[str, Dict]): Dictionary with link information
+            params (Dict[str, Any]): Simulation parameters
             
         Returns:
-            str: Путь к созданному файлу сценария
+            str: Path to created scenario file
         """
-        # Создаем временный файл для сценария NS-3
+        # Create a temporary file for NS-3 scenario
         fd, scenario_path = tempfile.mkstemp(suffix=".xml", prefix="ns3_scenario_")
         os.close(fd)
         
-        # Создаем корневой элемент XML
+        # Create root XML element
         root = ET.Element("scenario")
         
-        # Добавляем параметры симуляции
+        # Add simulation parameters
         params_elem = ET.SubElement(root, "parameters")
         for key, value in params.items():
             param_elem = ET.SubElement(params_elem, "parameter")
             param_elem.set("name", key)
             param_elem.set("value", str(value))
         
-        # Добавляем информацию об узлах
+        # Add node information
         nodes_elem = ET.SubElement(root, "nodes")
         for node_id, node_data in nodes.items():
             node_elem = ET.SubElement(nodes_elem, "node")
@@ -133,7 +133,7 @@ class NS3Adapter:
                 cap_elem.set("name", cap_name)
                 cap_elem.set("value", str(cap_value))
         
-        # Добавляем информацию о связях
+        # Add link information
         links_elem = ET.SubElement(root, "links")
         for link_id, link_data in links.items():
             link_elem = ET.SubElement(links_elem, "link")
@@ -147,52 +147,52 @@ class NS3Adapter:
             link_elem.set("quality", str(link_data.get("quality", 0.5)))
             link_elem.set("bandwidth", str(link_data.get("bandwidth", 1.0)))
         
-        # Добавляем настройки анимации
+        # Add animation settings
         anim_elem = ET.SubElement(root, "animation")
         anim_elem.set("enabled", "true")
         anim_elem.set("max_packets_per_sec", "500")
         anim_elem.set("update_interval", "0.1")
         
-        # Сохраняем XML в файл
+        # Save XML to file
         tree = ET.ElementTree(root)
         tree.write(scenario_path, encoding="utf-8", xml_declaration=True)
         
-        logger.info(f"Сценарий NS-3 создан: {scenario_path}")
+        logger.info(f"NS-3 scenario created: {scenario_path}")
         return scenario_path
     
     def run_simulation(self, scenario_path: str, duration: float, 
                      time_resolution: float = 0.1, output_dir: str = None) -> Dict[str, Any]:
         """
-        Запускает симуляцию NS-3 на основе сценария.
+        Runs NS-3 simulation based on scenario.
         
         Args:
-            scenario_path (str): Путь к файлу сценария
-            duration (float): Продолжительность симуляции в секундах
-            time_resolution (float, optional): Разрешение времени в секундах. По умолчанию 0.1.
-            output_dir (str, optional): Директория для вывода результатов. По умолчанию временная.
+            scenario_path (str): Path to scenario file
+            duration (float): Simulation duration in seconds
+            time_resolution (float, optional): Time resolution in seconds. Default is 0.1.
+            output_dir (str, optional): Output directory for results. Default is temporary.
             
         Returns:
-            Dict[str, Any]: Результаты симуляции
+            Dict[str, Any]: Simulation results
         """
-        # Создаем директорию для вывода, если не указана
+        # Create output directory if not specified
         if not output_dir:
             output_dir = tempfile.mkdtemp(prefix="ns3_output_")
         elif not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
-        # Формируем команду для запуска NS-3
+        # Form command for NS-3 run
         ns3_script_path = os.path.join(self.ns3_path, "scratch", "manet-blockchain-sim.cc")
         
-        # Проверяем существование скрипта
+        # Check if script exists
         if not os.path.exists(ns3_script_path):
-            logger.warning(f"Скрипт симуляции не найден: {ns3_script_path}")
-            logger.warning("Будет использоваться стандартный скрипт для MANET")
+            logger.warning(f"Simulation script not found: {ns3_script_path}")
+            logger.warning("Default script for MANET will be used")
             ns3_script_path = "scratch/manet-simulation"
         
-        # Путь к исполняемому файлу NS-3
+        # NS-3 executable path
         ns3_exec = os.path.join(self.ns3_path, "ns3")
         
-        # Формируем аргументы командной строки
+        # Form command line arguments
         cmd_args = [
             ns3_exec,
             "run",
@@ -203,20 +203,20 @@ class NS3Adapter:
             f"--outputDir={output_dir}"
         ]
         
-        # Запускаем симуляцию
-        logger.info(f"Запуск симуляции NS-3: {' '.join(cmd_args)}")
+        # Run simulation
+        logger.info(f"Running NS-3 simulation: {' '.join(cmd_args)}")
         
         try:
-            # В реальном сценарии здесь будет запуск процесса NS-3
-            # Для демонстрации мы просто эмулируем запуск и создаем фиктивные результаты
+            # In real scenario, this would start NS-3 process
+            # For demonstration, we simply simulate run and create fake results
             
             # proc = subprocess.run(cmd_args, check=True, capture_output=True, text=True)
             # output = proc.stdout
             
             self.simulation_running = True
-            logger.info("Симуляция NS-3 запущена")
+            logger.info("NS-3 simulation started")
             
-            # Эмулируем результаты симуляции
+            # Simulate simulation results
             results = {
                 "simulation_time": duration,
                 "node_movements": [],
@@ -229,66 +229,66 @@ class NS3Adapter:
                 }
             }
             
-            # В реальной интеграции здесь бы происходил парсинг вывода NS-3
+            # In real integration, this would parse NS-3 output
             
             self.simulation_running = False
-            logger.info("Симуляция NS-3 завершена")
+            logger.info("NS-3 simulation completed")
             
             return results
             
         except subprocess.CalledProcessError as e:
-            logger.error(f"Ошибка при запуске симуляции NS-3: {e}")
-            logger.error(f"Вывод stderr: {e.stderr}")
+            logger.error(f"NS-3 simulation error: {e}")
+            logger.error(f"Stderr: {e.stderr}")
             self.simulation_running = False
             return {"error": str(e), "stderr": e.stderr}
     
     def parse_ns3_output(self, output_dir: str) -> Dict[str, Any]:
         """
-        Парсит вывод симуляции NS-3.
+        Parses NS-3 simulation output.
         
         Args:
-            output_dir (str): Директория с результатами симуляции
+            output_dir (str): Output directory with simulation results
             
         Returns:
-            Dict[str, Any]: Структурированные результаты симуляции
+            Dict[str, Any]: Structured simulation results
         """
-        # В этой функции бы происходил парсинг файлов, сгенерированных NS-3
-        # Для простоты демонстрации возвращаем заглушку
+        # In this function, NS-3 output parsing would happen
+        # For demonstration, we return a placeholder
         
-        logger.info(f"Парсинг результатов NS-3 из директории: {output_dir}")
+        logger.info(f"Parsing NS-3 results from directory: {output_dir}")
         
-        # Заглушка для результатов
+        # Placeholder for results
         results = {
             "node_positions": {},
             "link_qualities": {},
             "packets_info": []
         }
         
-        # В реальной реализации здесь был бы код для чтения файлов из output_dir
-        # и извлечения данных о позициях узлов, качестве соединений и информации о пакетах
+        # In real implementation, there would be code to read files from output_dir
+        # and extract node positions, link qualities, and packet information
         
         return results
     
     def create_ns3_manet_script(self) -> str:
         """
-        Создает скрипт C++ для NS-3, моделирующий MANET сеть с блокчейном.
+        Creates C++ script for NS-3, simulating MANET network with blockchain.
         
         Returns:
-            str: Путь к созданному файлу скрипта
+            str: Path to created script file
         """
-        # Создаем директорию scratch, если не существует
+        # Create scratch directory if it doesn't exist
         scratch_dir = os.path.join(self.ns3_path, "scratch")
         if not os.path.exists(scratch_dir):
             os.makedirs(scratch_dir)
         
-        # Путь к скрипту
+        # Script path
         script_path = os.path.join(scratch_dir, "manet-blockchain-sim.cc")
         
-        # Обновляем содержимое скрипта с поддержкой NetAnim
+        # Update script content with NetAnim support
         script_content = """
         /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
         /*
-         * Симуляция MANET сети с поддержкой блокчейна
+         * Simulation of MANET network with blockchain support
          */
 
         #include "ns3/core-module.h"
@@ -311,7 +311,7 @@ class NS3Adapter:
 
         NS_LOG_COMPONENT_DEFINE("ManetBlockchainSimulation");
 
-        // Функция для записи позиций узлов с течением времени
+        // Function to record node positions over time
         static void
         RecordNodePositions(NodeContainer nodes, double time, std::string filename)
         {
@@ -330,42 +330,68 @@ class NS3Adapter:
           file.close();
         }
 
-        // Функция для записи информации о пакетах
+        // Function to record packet information
         static void
         RecordPacketInfo(std::string context, Ptr<const Packet> packet)
         {
-          // В реальной реализации здесь бы записывалась информация о пакетах
+          // In real implementation, this would record packet information
           NS_LOG_INFO("Packet transmitted: " << context << ", size: " << packet->GetSize());
+        }
+
+        // Function to handle packet route change
+        static void 
+        PacketTracing(std::string context, Ptr<const Packet> packet, 
+                      Ptr<Ipv4> ipv4, uint32_t interface)
+        {
+          // Get a copy of the packet for header inspection
+          Ptr<Packet> packetCopy = packet->Copy();
+          
+          // Extract IP headers for source and destination addresses
+          Ipv4Header ipHeader;
+          packetCopy->RemoveHeader(ipHeader);
+          
+          Ipv4Address srcAddr = ipHeader.GetSource();
+          Ipv4Address dstAddr = ipHeader.GetDestination();
+          
+          NS_LOG_INFO("Packet route: " << srcAddr << " -> " << dstAddr 
+                      << ", size: " << packet->GetSize() 
+                      << ", TTL: " << (uint32_t)ipHeader.GetTtl());
+          
+          // Write to file for further analysis (if needed)
+          // std::ofstream file;
+          // file.open(outputDir + "/packet_traces.csv", std::ios::app);
+          // file << Simulator::Now().GetSeconds() << "," << srcAddr << "," << dstAddr << "," << packet->GetSize() << std::endl;
+          // file.close();
         }
 
         int
         main(int argc, char *argv[])
         {
-          // Параметры командной строки
+          // Command line arguments
           std::string scenarioFile = "";
           double duration = 100.0;
           double resolution = 0.1;
           std::string outputDir = "./";
           
           CommandLine cmd;
-          cmd.AddValue("scenarioFile", "Путь к файлу сценария", scenarioFile);
-          cmd.AddValue("duration", "Продолжительность симуляции в секундах", duration);
-          cmd.AddValue("resolution", "Разрешение записи данных в секундах", resolution);
-          cmd.AddValue("outputDir", "Директория для вывода результатов", outputDir);
+          cmd.AddValue("scenarioFile", "Path to scenario file", scenarioFile);
+          cmd.AddValue("duration", "Simulation duration in seconds", duration);
+          cmd.AddValue("resolution", "Time resolution for data recording in seconds", resolution);
+          cmd.AddValue("outputDir", "Output directory for results", outputDir);
           cmd.Parse(argc, argv);
           
-          // Настраиваем логгирование
+          // Enable logging
           LogComponentEnable("ManetBlockchainSimulation", LOG_LEVEL_INFO);
           
-          // Количество узлов (в реальности должно быть прочитано из scenarioFile)
+          // Number of nodes (in real scenario, should be read from scenarioFile)
           uint32_t nNodes = 20;
           uint32_t nValidators = nNodes / 10;
           
-          // Создаем узлы
+          // Create nodes
           NodeContainer nodes;
           nodes.Create(nNodes);
           
-          // Настраиваем WiFi
+          // Setup WiFi
           WifiHelper wifi;
           wifi.SetStandard(WIFI_STANDARD_80211g);
           
@@ -373,14 +399,14 @@ class NS3Adapter:
           YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default();
           wifiPhy.SetChannel(wifiChannel.Create());
           
-          // Настройка MAC уровня для Ad-Hoc режима
+          // Setup MAC layer for Ad-Hoc mode
           WifiMacHelper wifiMac;
           wifiMac.SetType("ns3::AdhocWifiMac");
           
-          // Устанавливаем Wi-Fi на узлы
+          // Install Wi-Fi on nodes
           NetDeviceContainer devices = wifi.Install(wifiPhy, wifiMac, nodes);
           
-          // Модель мобильности (случайное блуждание)
+          // Mobility model (random walk)
           MobilityHelper mobility;
           mobility.SetPositionAllocator("ns3::GridPositionAllocator",
                                        "MinX", DoubleValue(0.0),
@@ -395,18 +421,18 @@ class NS3Adapter:
                                    "Speed", StringValue("ns3::ConstantRandomVariable[Constant=5.0]"));
           mobility.Install(nodes);
           
-          // Устанавливаем стек Интернет-протоколов
+          // Setup Internet protocol stack
           InternetStackHelper internet;
-          AodvHelper aodv; // Используем AODV маршрутизацию для MANET
+          AodvHelper aodv; // Using AODV routing for MANET
           internet.SetRoutingHelper(aodv);
           internet.Install(nodes);
           
-          // Назначаем IP-адреса
+          // Assign IP addresses
           Ipv4AddressHelper ipv4;
           ipv4.SetBase("10.1.1.0", "255.255.255.0");
           Ipv4InterfaceContainer interfaces = ipv4.Assign(devices);
           
-          // Подготовка файлов для вывода данных
+          // Prepare files for output data
           std::string posFile = outputDir + "/node_positions.csv";
           std::ofstream positionFile;
           positionFile.open(posFile);
@@ -418,93 +444,119 @@ class NS3Adapter:
           positionFile << std::endl;
           positionFile.close();
           
-          // Настраиваем запись позиций узлов
+          // Setup node positions recording
           for (double time = 0.0; time <= duration; time += resolution)
           {
             Simulator::Schedule(Seconds(time), &RecordNodePositions, nodes, time, posFile);
           }
           
-          // Трассировка пакетов
+          // Packet tracing
           Config::Connect("/NodeList/*/$ns3::MobilityModel/CourseChange",
                           MakeCallback(&CourseChangeCallback));
           
-          // Анимация для визуализации (если доступна)
+          // Add IP packet tracing for visualization
+          Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/Tx",
+                         MakeCallback(&PacketTracing));
+          Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/Rx",
+                         MakeCallback(&RecordPacketInfo));
+          
+          // Animation for visualization (if available)
           AnimationInterface anim(outputDir + "/animation.xml");
           
-          // Мониторинг потоков
+          // Enable packet metadata for visualization
+          anim.EnablePacketMetadata(true);
+          anim.EnableIpv4RouteTracking();
+          anim.EnableQueueCounters();
+          anim.EnableWifiMacCounters();
+          anim.EnableWifiPhyCounters();
+          
+          // Setup node descriptions and colors
+          for (uint32_t i = 0; i < nNodes; i++) {
+            if (i < nValidators) {
+              // Validators - red
+              anim.UpdateNodeDescription(nodes.Get(i), "Validator " + std::to_string(i));
+              anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0);
+            } else {
+              // Regular nodes - blue
+              anim.UpdateNodeDescription(nodes.Get(i), "Node " + std::to_string(i));
+              anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255);
+            }
+          }
+          
+          // Stream monitoring
           Ptr<FlowMonitor> flowMonitor;
           FlowMonitorHelper flowHelper;
           flowMonitor = flowHelper.InstallAll();
           
-          // Запуск симуляции
+          // Run simulation
           Simulator::Stop(Seconds(duration));
           Simulator::Run();
           
-          // Сохраняем статистику потоков
+          // Save stream statistics
           flowMonitor->SerializeToXmlFile(outputDir + "/flow-monitor.xml", true, true);
           
           Simulator::Destroy();
           
-          NS_LOG_INFO("Симуляция завершена.");
+          NS_LOG_INFO("Simulation completed.");
           
           return 0;
         }
         """
         
-        # Записываем скрипт в файл
+        # Write script to file
         with open(script_path, 'w') as f:
             f.write(script_content)
         
-        logger.info(f"Скрипт NS-3 создан: {script_path}")
+        logger.info(f"NS-3 script created: {script_path}")
         return script_path
 
     def compile_ns3_script(self, script_name: str) -> bool:
         """
-        Компилирует скрипт NS-3.
+        Compiles NS-3 script.
         
         Args:
-            script_name (str): Имя скрипта (без пути и расширения)
+            script_name (str): Script name (without path and extension)
             
         Returns:
-            bool: True, если компиляция успешна, иначе False
+            bool: True if compilation is successful, otherwise False
         """
-        # Путь к NS-3 для компиляции
+        # NS-3 path for compilation
         cmd_args = [
             os.path.join(self.ns3_path, "ns3"),
             "build",
             f"scratch/{script_name}"
         ]
         
-        logger.info(f"Компиляция скрипта NS-3: {' '.join(cmd_args)}")
+        logger.info(f"NS-3 script compilation: {' '.join(cmd_args)}")
         
         try:
-            # В реальном сценарии здесь будет запуск компиляции
+            # In real scenario, this would start compilation
             # proc = subprocess.run(cmd_args, check=True, capture_output=True, text=True)
             # return True
             
-            # Для демонстрации просто возвращаем успех
-            logger.info("Компиляция NS-3 успешно завершена")
+            # For demonstration, simply return success
+            logger.info("NS-3 compilation completed successfully")
             return True
             
         except subprocess.CalledProcessError as e:
-            logger.error(f"Ошибка при компиляции скрипта NS-3: {e}")
-            logger.error(f"Вывод stderr: {e.stderr}")
+            logger.error(f"NS-3 script compilation error: {e}")
+            logger.error(f"Stderr: {e.stderr}")
             return False
 
 
 if __name__ == "__main__":
-    # Пример использования
+    # Example usage
     try:
-        # Создаем адаптер, указав путь к NS-3
+        # Create adapter, specifying NS-3 path
         adapter = NS3Adapter("/path/to/ns3")
         
-        # Создаем скрипт для симуляции
+        # Create script for simulation
         script_path = adapter.create_ns3_manet_script()
         
-        # Компилируем скрипт
+        # Compile script
         adapter.compile_ns3_script("manet-blockchain-sim")
         
-        # Создаем простой сценарий
+        # Create simple scenario
         nodes = {
             "base_station_1": {
                 "type": "base_station",
@@ -543,10 +595,10 @@ if __name__ == "__main__":
             "routing_protocol": "aodv"
         }
         
-        # Создаем файл сценария
+        # Create scenario file
         scenario_file = adapter.create_scenario_file(nodes, links, params)
         
-        # Запускаем симуляцию
+        # Run simulation
         results = adapter.run_simulation(
             scenario_file, 
             duration=100.0,
@@ -554,7 +606,7 @@ if __name__ == "__main__":
             output_dir="/tmp/ns3_results"
         )
         
-        print(f"Результаты симуляции: {results}")
+        print(f"Simulation results: {results}")
         
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"Error: {e}")
