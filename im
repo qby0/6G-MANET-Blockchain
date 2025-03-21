@@ -1,0 +1,36 @@
+[33mcommit 958f0648717065b53781aa513bd85a52dbf65ec8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Merge: b7ce110 aa00156
+Author: User <example@example.com>
+Date:   Fri Mar 21 02:10:19 2025 +0100
+
+    Merge branch 'main' of https://github.com/qby0/6G-MANET-Blockchain
+
+[33mcommit b7ce1102dff4da5566eaf3ed2702534e54d475f6[m
+Author: User <example@example.com>
+Date:   Fri Mar 21 02:09:57 2025 +0100
+
+    Add single base station simulation with AODV routing
+
+[33mcommit aa00156c200887e4018df712d150570a048f6e63[m
+Author: qby0 <88894161+qby0@users.noreply.github.com>
+Date:   Fri Mar 21 01:00:33 2025 +0000
+
+    Delete README_CONTRIBUTING.md
+
+[33mcommit 9047013420b7370fee27f004095e971dcf82300a[m
+Author: qby0 <88894161+qby0@users.noreply.github.com>
+Date:   Fri Mar 21 00:59:57 2025 +0000
+
+    Delete GITHUB_SETUP_INSTRUCTIONS.md
+
+[33mcommit f6de91b283ae09702baa430bb7e051089756fe2d[m
+Author: User <example@example.com>
+Date:   Fri Mar 21 01:51:54 2025 +0100
+
+    Add simulation details and translate to English
+
+[33mcommit 51aadb14d75e92ad2bce10c6b2ceb8cde6556faf[m
+Author: User <example@example.com>
+Date:   Mon Mar 17 23:09:25 2025 +0100
+
+    Инициализация репозитория 6G-MANET-Blockchain

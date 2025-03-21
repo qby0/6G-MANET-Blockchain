@@ -1,612 +1,351 @@
-"""
-Adapter for NS-3 integration.
-Provides management of NS-3 simulation from Python.
-"""
-import os
-import sys
-import logging
-import subprocess
-import tempfile
-import xml.etree.ElementTree as ET
-from typing import Dict, List, Any, Optional, Tuple
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("NS3Adapter")
+"""
+Unified NS3 Adapter class for interacting with NS-3 simulation environment.
+This adapter provides functionality for both basic NS-3 operations and blockchain integration.
+"""
+
+import os
+import subprocess
+import logging
+import re
+import json
+import sys
+import time
+from typing import Dict, List, Optional, Union, Tuple, Any
+
+# Import paths manager
+from models.paths_manager import get_ns3_dir, get_config_dir, get_results_dir
+
+logger = logging.getLogger(__name__)
 
 class NS3Adapter:
-    """Class for interaction with NS-3"""
+    """
+    A unified adapter for interacting with NS-3 simulation environment.
+    This class handles both basic operations and blockchain integration features.
+    """
     
-    def __init__(self, ns3_path: str = None):
+    def __init__(self, config_file: Optional[str] = None, ns3_path: Optional[str] = None):
         """
-        Initializes the NS-3 adapter.
+        Initialize the NS-3 adapter with the path to NS-3 and optional config file.
         
         Args:
-            ns3_path (str, optional): Path to NS-3 directory.
-                                      By default, looks for NS3_DIR environment variable.
+            config_file: Path to the configuration file (if None, default configuration is used)
+            ns3_path: Path to NS-3 directory, if None, get_ns3_dir() will be used
         """
-        # Define the path to NS-3
-        if ns3_path:
-            self.ns3_path = ns3_path
-        else:
-            self.ns3_path = os.environ.get("NS3_DIR", None)
+        # Set up logging
+        self.logger = logging.getLogger("NS3Adapter")
+        
+        # Get NS-3 path from parameter, or from paths_manager if not provided
+        self.ns3_path = ns3_path if ns3_path else get_ns3_dir()
+        if not self.ns3_path:
+            # If paths_manager doesn't have it, try environment
+            self.ns3_path = os.environ.get("NS3_DIR")
             if not self.ns3_path:
-                raise EnvironmentError("NS-3 path not specified. Provide it as an argument or set the NS3_DIR environment variable.")
-
-        # Check if the directory exists
+                self.logger.error("NS-3 path not specified and not found in environment or paths_manager")
+                raise ValueError("NS-3 path not found. Please specify it or set NS3_DIR in env_paths.json or environment")
+        
+        # Verify NS-3 path exists
         if not os.path.exists(self.ns3_path):
-            raise FileNotFoundError(f"NS-3 directory not found at: {self.ns3_path}")
+            raise FileNotFoundError(f"NS-3 directory not found at {self.ns3_path}")
+            
+        # Initialize NS-3 script path
+        self.ns3_script = os.path.join(self.ns3_path, "ns3")
         
-        logger.info(f"NS-3 adapter initialized with path: {self.ns3_path}")
+        # Check if NS-3 script exists
+        if not os.path.exists(self.ns3_script):
+            logger.warning(f"NS-3 script not found at {self.ns3_script}, some functionality may be limited")
         
-        # Variables for storing simulation state
+        logger.info(f"NS3Adapter initialized with NS-3 path: {self.ns3_path}")
+        
+        # Load configuration for blockchain integration if provided
+        if config_file:
+            self.config_file = config_file
+        else:
+            # Use default configuration file from the config directory
+            self.config_file = os.path.join(get_config_dir(), "integrated.json")
+            self.logger.info(f"Using default configuration file: {self.config_file}")
+        
+        # Load configuration if file exists
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r') as f:
+                self.config = json.load(f)
+            self.logger.info(f"Configuration loaded from: {self.config_file}")
+        else:
+            self.logger.warning(f"Configuration file not found: {self.config_file}")
+            self.logger.info("Using default configuration")
+            self.config = self._get_default_config()
+        
+        # Create output directory using paths_manager
+        self.output_dir = os.path.join(get_results_dir(), self.config.get('simulation_name', 'integrated_sim'))
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.logger.info(f"Output directory: {self.output_dir}")
+        
+        # Initialize state variables for blockchain integration
         self.simulation_running = False
-        self.current_nodes = {}
-        self.current_links = {}
-        self.simulation_time = 0.0
+        self.current_state = {}
+        self.network_events = []
+        self.blockchain_events = []
         
-    def configure_and_build(self) -> bool:
+    def _get_default_config(self) -> Dict[str, Any]:
         """
-        Configures and builds NS-3 with optimizations.
+        Get default configuration for the integrated simulation.
         
         Returns:
-            bool: True if build is successful, False otherwise
+            Dictionary with default configuration
         """
-        try:
-            # Setup ccache
-            os.environ["CCACHE_DIR"] = os.path.join(self.ns3_path, ".ccache")
-            os.environ["CCACHE_MAXSIZE"] = "50G"
-            
-            # Configuration with optimizations
-            configure_cmd = [
-                "./ns3",
-                "configure",
-                "--enable-examples",
-                "--enable-tests",
-                "--enable-python-bindings",
-                "--enable-modules=netanim",
-                "--build-profile=optimized",
-                "--enable-ccache",
-                "--enable-ninja"
-            ]
-            
-            subprocess.run(configure_cmd, cwd=self.ns3_path, check=True)
-            
-            # Parallel build
-            build_cmd = ["./ns3", "build", f"-j{os.cpu_count()}"]
-            subprocess.run(build_cmd, cwd=self.ns3_path, check=True)
-            
-            logger.info("NS-3 successfully configured and built")
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"NS-3 build error: {e}")
-            return False
-
-    def create_scenario_file(self, nodes: Dict[str, Dict], 
-                           links: Dict[str, Dict],
-                           params: Dict[str, Any]) -> str:
-        """
-        Creates a temporary scenario file for NS-3 based on provided data.
-        
-        Args:
-            nodes (Dict[str, Dict]): Dictionary with node information
-            links (Dict[str, Dict]): Dictionary with link information
-            params (Dict[str, Any]): Simulation parameters
-            
-        Returns:
-            str: Path to created scenario file
-        """
-        # Create a temporary file for NS-3 scenario
-        fd, scenario_path = tempfile.mkstemp(suffix=".xml", prefix="ns3_scenario_")
-        os.close(fd)
-        
-        # Create root XML element
-        root = ET.Element("scenario")
-        
-        # Add simulation parameters
-        params_elem = ET.SubElement(root, "parameters")
-        for key, value in params.items():
-            param_elem = ET.SubElement(params_elem, "parameter")
-            param_elem.set("name", key)
-            param_elem.set("value", str(value))
-        
-        # Add node information
-        nodes_elem = ET.SubElement(root, "nodes")
-        for node_id, node_data in nodes.items():
-            node_elem = ET.SubElement(nodes_elem, "node")
-            node_elem.set("id", node_id)
-            node_elem.set("type", node_data.get("type", "regular"))
-            
-            pos = node_data.get("position", (0, 0, 0))
-            position_elem = ET.SubElement(node_elem, "position")
-            position_elem.set("x", str(pos[0]))
-            position_elem.set("y", str(pos[1]))
-            position_elem.set("z", str(pos[2]))
-            
-            capabilities_elem = ET.SubElement(node_elem, "capabilities")
-            for cap_name, cap_value in node_data.get("capabilities", {}).items():
-                cap_elem = ET.SubElement(capabilities_elem, "capability")
-                cap_elem.set("name", cap_name)
-                cap_elem.set("value", str(cap_value))
-        
-        # Add link information
-        links_elem = ET.SubElement(root, "links")
-        for link_id, link_data in links.items():
-            link_elem = ET.SubElement(links_elem, "link")
-            link_elem.set("id", link_id)
-            
-            nodes_list = link_data.get("nodes", [])
-            if len(nodes_list) >= 2:
-                link_elem.set("source", nodes_list[0])
-                link_elem.set("target", nodes_list[1])
-            
-            link_elem.set("quality", str(link_data.get("quality", 0.5)))
-            link_elem.set("bandwidth", str(link_data.get("bandwidth", 1.0)))
-        
-        # Add animation settings
-        anim_elem = ET.SubElement(root, "animation")
-        anim_elem.set("enabled", "true")
-        anim_elem.set("max_packets_per_sec", "500")
-        anim_elem.set("update_interval", "0.1")
-        
-        # Save XML to file
-        tree = ET.ElementTree(root)
-        tree.write(scenario_path, encoding="utf-8", xml_declaration=True)
-        
-        logger.info(f"NS-3 scenario created: {scenario_path}")
-        return scenario_path
-    
-    def run_simulation(self, scenario_path: str, duration: float, 
-                     time_resolution: float = 0.1, output_dir: str = None) -> Dict[str, Any]:
-        """
-        Runs NS-3 simulation based on scenario.
-        
-        Args:
-            scenario_path (str): Path to scenario file
-            duration (float): Simulation duration in seconds
-            time_resolution (float, optional): Time resolution in seconds. Default is 0.1.
-            output_dir (str, optional): Output directory for results. Default is temporary.
-            
-        Returns:
-            Dict[str, Any]: Simulation results
-        """
-        # Create output directory if not specified
-        if not output_dir:
-            output_dir = tempfile.mkdtemp(prefix="ns3_output_")
-        elif not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        
-        # Form command for NS-3 run
-        ns3_script_path = os.path.join(self.ns3_path, "scratch", "manet-blockchain-sim.cc")
-        
-        # Check if script exists
-        if not os.path.exists(ns3_script_path):
-            logger.warning(f"Simulation script not found: {ns3_script_path}")
-            logger.warning("Default script for MANET will be used")
-            ns3_script_path = "scratch/manet-simulation"
-        
-        # NS-3 executable path
-        ns3_exec = os.path.join(self.ns3_path, "ns3")
-        
-        # Form command line arguments
-        cmd_args = [
-            ns3_exec,
-            "run",
-            f"{ns3_script_path}",
-            f"--scenarioFile={scenario_path}",
-            f"--duration={duration}",
-            f"--resolution={time_resolution}",
-            f"--outputDir={output_dir}"
-        ]
-        
-        # Run simulation
-        logger.info(f"Running NS-3 simulation: {' '.join(cmd_args)}")
-        
-        try:
-            # In real scenario, this would start NS-3 process
-            # For demonstration, we simply simulate run and create fake results
-            
-            # proc = subprocess.run(cmd_args, check=True, capture_output=True, text=True)
-            # output = proc.stdout
-            
-            self.simulation_running = True
-            logger.info("NS-3 simulation started")
-            
-            # Simulate simulation results
-            results = {
-                "simulation_time": duration,
-                "node_movements": [],
-                "link_qualities": [],
-                "network_stats": {
-                    "packets_sent": 1000,
-                    "packets_received": 950,
-                    "average_delay": 0.05,
-                    "packet_loss": 0.05
-                }
+        return {
+            "simulation_name": "integrated_ns3_blockchain",
+            "simulation_time": 300.0,
+            "time_resolution": 0.1,
+            "random_seed": 42,
+            "network": {
+                "type": "manet",
+                "node_count": 20,
+                "validator_percentage": 0.2,
+                "area_size": [1000, 1000],
+                "mobility_model": "RandomWalk2dMobilityModel",
+                "speed": 5.0
+            },
+            "blockchain": {
+                "consensus_threshold": 0.67,
+                "block_time": 10.0,
+                "max_propagation_rounds": 5,
+                "transaction_rate": 0.05
+            },
+            "ns3": {
+                "routing_protocol": "AODV",
+                "packet_size": 1024,
+                "data_rate": "2Mbps",
+                "wifi_standard": "802.11g"
+            },
+            "output": {
+                "save_path": self.output_dir,
+                "format": "json"
             }
-            
-            # In real integration, this would parse NS-3 output
-            
-            self.simulation_running = False
-            logger.info("NS-3 simulation completed")
-            
-            return results
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"NS-3 simulation error: {e}")
-            logger.error(f"Stderr: {e.stderr}")
-            self.simulation_running = False
-            return {"error": str(e), "stderr": e.stderr}
-    
-    def parse_ns3_output(self, output_dir: str) -> Dict[str, Any]:
-        """
-        Parses NS-3 simulation output.
-        
-        Args:
-            output_dir (str): Output directory with simulation results
-            
-        Returns:
-            Dict[str, Any]: Structured simulation results
-        """
-        # In this function, NS-3 output parsing would happen
-        # For demonstration, we return a placeholder
-        
-        logger.info(f"Parsing NS-3 results from directory: {output_dir}")
-        
-        # Placeholder for results
-        results = {
-            "node_positions": {},
-            "link_qualities": {},
-            "packets_info": []
         }
         
-        # In real implementation, there would be code to read files from output_dir
-        # and extract node positions, link qualities, and packet information
-        
-        return results
-    
-    def create_ns3_manet_script(self) -> str:
+    def get_ns3_version(self) -> str:
         """
-        Creates C++ script for NS-3, simulating MANET network with blockchain.
+        Get the version of NS-3 installed.
         
         Returns:
-            str: Path to created script file
+            The version string of NS-3
         """
-        # Create scratch directory if it doesn't exist
-        scratch_dir = os.path.join(self.ns3_path, "scratch")
-        if not os.path.exists(scratch_dir):
-            os.makedirs(scratch_dir)
-        
-        # Script path
-        script_path = os.path.join(scratch_dir, "manet-blockchain-sim.cc")
-        
-        # Update script content with NetAnim support
-        script_content = """
-        /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-        /*
-         * Simulation of MANET network with blockchain support
-         */
-
-        #include "ns3/core-module.h"
-        #include "ns3/network-module.h"
-        #include "ns3/internet-module.h"
-        #include "ns3/mobility-module.h"
-        #include "ns3/wifi-module.h"
-        #include "ns3/applications-module.h"
-        #include "ns3/netanim-module.h"
-        #include "ns3/aodv-module.h"
-        #include "ns3/flow-monitor-module.h"
-        #include <iostream>
-        #include <fstream>
-        #include <string>
-        #include <vector>
-        #include <map>
-        #include "ns3/command-line.h"
-
-        using namespace ns3;
-
-        NS_LOG_COMPONENT_DEFINE("ManetBlockchainSimulation");
-
-        // Function to record node positions over time
-        static void
-        RecordNodePositions(NodeContainer nodes, double time, std::string filename)
-        {
-          std::ofstream file;
-          file.open(filename, std::ios::app);
-          file << time;
-          
-          for (uint32_t i = 0; i < nodes.GetN(); i++)
-          {
-            Ptr<MobilityModel> mobility = nodes.Get(i)->GetObject<MobilityModel>();
-            Vector pos = mobility->GetPosition();
-            file << "," << i << "," << pos.x << "," << pos.y << "," << pos.z;
-          }
-          
-          file << std::endl;
-          file.close();
-        }
-
-        // Function to record packet information
-        static void
-        RecordPacketInfo(std::string context, Ptr<const Packet> packet)
-        {
-          // In real implementation, this would record packet information
-          NS_LOG_INFO("Packet transmitted: " << context << ", size: " << packet->GetSize());
-        }
-
-        // Function to handle packet route change
-        static void 
-        PacketTracing(std::string context, Ptr<const Packet> packet, 
-                      Ptr<Ipv4> ipv4, uint32_t interface)
-        {
-          // Get a copy of the packet for header inspection
-          Ptr<Packet> packetCopy = packet->Copy();
-          
-          // Extract IP headers for source and destination addresses
-          Ipv4Header ipHeader;
-          packetCopy->RemoveHeader(ipHeader);
-          
-          Ipv4Address srcAddr = ipHeader.GetSource();
-          Ipv4Address dstAddr = ipHeader.GetDestination();
-          
-          NS_LOG_INFO("Packet route: " << srcAddr << " -> " << dstAddr 
-                      << ", size: " << packet->GetSize() 
-                      << ", TTL: " << (uint32_t)ipHeader.GetTtl());
-          
-          // Write to file for further analysis (if needed)
-          // std::ofstream file;
-          // file.open(outputDir + "/packet_traces.csv", std::ios::app);
-          // file << Simulator::Now().GetSeconds() << "," << srcAddr << "," << dstAddr << "," << packet->GetSize() << std::endl;
-          // file.close();
-        }
-
-        int
-        main(int argc, char *argv[])
-        {
-          // Command line arguments
-          std::string scenarioFile = "";
-          double duration = 100.0;
-          double resolution = 0.1;
-          std::string outputDir = "./";
-          
-          CommandLine cmd;
-          cmd.AddValue("scenarioFile", "Path to scenario file", scenarioFile);
-          cmd.AddValue("duration", "Simulation duration in seconds", duration);
-          cmd.AddValue("resolution", "Time resolution for data recording in seconds", resolution);
-          cmd.AddValue("outputDir", "Output directory for results", outputDir);
-          cmd.Parse(argc, argv);
-          
-          // Enable logging
-          LogComponentEnable("ManetBlockchainSimulation", LOG_LEVEL_INFO);
-          
-          // Number of nodes (in real scenario, should be read from scenarioFile)
-          uint32_t nNodes = 20;
-          uint32_t nValidators = nNodes / 10;
-          
-          // Create nodes
-          NodeContainer nodes;
-          nodes.Create(nNodes);
-          
-          // Setup WiFi
-          WifiHelper wifi;
-          wifi.SetStandard(WIFI_STANDARD_80211g);
-          
-          YansWifiPhyHelper wifiPhy;
-          YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default();
-          wifiPhy.SetChannel(wifiChannel.Create());
-          
-          // Setup MAC layer for Ad-Hoc mode
-          WifiMacHelper wifiMac;
-          wifiMac.SetType("ns3::AdhocWifiMac");
-          
-          // Install Wi-Fi on nodes
-          NetDeviceContainer devices = wifi.Install(wifiPhy, wifiMac, nodes);
-          
-          // Mobility model (random walk)
-          MobilityHelper mobility;
-          mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                       "MinX", DoubleValue(0.0),
-                                       "MinY", DoubleValue(0.0),
-                                       "DeltaX", DoubleValue(50.0),
-                                       "DeltaY", DoubleValue(50.0),
-                                       "GridWidth", UintegerValue(5),
-                                       "LayoutType", StringValue("RowFirst"));
-          
-          mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                                   "Bounds", RectangleValue(Rectangle(-500, 500, -500, 500)),
-                                   "Speed", StringValue("ns3::ConstantRandomVariable[Constant=5.0]"));
-          mobility.Install(nodes);
-          
-          // Setup Internet protocol stack
-          InternetStackHelper internet;
-          AodvHelper aodv; // Using AODV routing for MANET
-          internet.SetRoutingHelper(aodv);
-          internet.Install(nodes);
-          
-          // Assign IP addresses
-          Ipv4AddressHelper ipv4;
-          ipv4.SetBase("10.1.1.0", "255.255.255.0");
-          Ipv4InterfaceContainer interfaces = ipv4.Assign(devices);
-          
-          // Prepare files for output data
-          std::string posFile = outputDir + "/node_positions.csv";
-          std::ofstream positionFile;
-          positionFile.open(posFile);
-          positionFile << "time";
-          for (uint32_t i = 0; i < nNodes; i++)
-          {
-            positionFile << ",node" << i << ",x,y,z";
-          }
-          positionFile << std::endl;
-          positionFile.close();
-          
-          // Setup node positions recording
-          for (double time = 0.0; time <= duration; time += resolution)
-          {
-            Simulator::Schedule(Seconds(time), &RecordNodePositions, nodes, time, posFile);
-          }
-          
-          // Packet tracing
-          Config::Connect("/NodeList/*/$ns3::MobilityModel/CourseChange",
-                          MakeCallback(&CourseChangeCallback));
-          
-          // Add IP packet tracing for visualization
-          Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/Tx",
-                         MakeCallback(&PacketTracing));
-          Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/Rx",
-                         MakeCallback(&RecordPacketInfo));
-          
-          // Animation for visualization (if available)
-          AnimationInterface anim(outputDir + "/animation.xml");
-          
-          // Enable packet metadata for visualization
-          anim.EnablePacketMetadata(true);
-          anim.EnableIpv4RouteTracking();
-          anim.EnableQueueCounters();
-          anim.EnableWifiMacCounters();
-          anim.EnableWifiPhyCounters();
-          
-          // Setup node descriptions and colors
-          for (uint32_t i = 0; i < nNodes; i++) {
-            if (i < nValidators) {
-              // Validators - red
-              anim.UpdateNodeDescription(nodes.Get(i), "Validator " + std::to_string(i));
-              anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0);
-            } else {
-              // Regular nodes - blue
-              anim.UpdateNodeDescription(nodes.Get(i), "Node " + std::to_string(i));
-              anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255);
-            }
-          }
-          
-          // Stream monitoring
-          Ptr<FlowMonitor> flowMonitor;
-          FlowMonitorHelper flowHelper;
-          flowMonitor = flowHelper.InstallAll();
-          
-          // Run simulation
-          Simulator::Stop(Seconds(duration));
-          Simulator::Run();
-          
-          // Save stream statistics
-          flowMonitor->SerializeToXmlFile(outputDir + "/flow-monitor.xml", true, true);
-          
-          Simulator::Destroy();
-          
-          NS_LOG_INFO("Simulation completed.");
-          
-          return 0;
-        }
-        """
-        
-        # Write script to file
-        with open(script_path, 'w') as f:
-            f.write(script_content)
-        
-        logger.info(f"NS-3 script created: {script_path}")
-        return script_path
-
-    def compile_ns3_script(self, script_name: str) -> bool:
-        """
-        Compiles NS-3 script.
-        
-        Args:
-            script_name (str): Script name (without path and extension)
+        if not os.path.exists(self.ns3_script):
+            return "Unknown (ns3 script not found)"
             
-        Returns:
-            bool: True if compilation is successful, otherwise False
-        """
-        # NS-3 path for compilation
-        cmd_args = [
-            os.path.join(self.ns3_path, "ns3"),
-            "build",
-            f"scratch/{script_name}"
-        ]
-        
-        logger.info(f"NS-3 script compilation: {' '.join(cmd_args)}")
-        
         try:
-            # In real scenario, this would start compilation
-            # proc = subprocess.run(cmd_args, check=True, capture_output=True, text=True)
-            # return True
-            
-            # For demonstration, simply return success
-            logger.info("NS-3 compilation completed successfully")
-            return True
-            
+            # Run ns3 --version to get version
+            result = subprocess.run(
+                [self.ns3_script, "--version"], 
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            # Extract version from output
+            version_match = re.search(r'ns-3\.(\d+\.\d+)', result.stdout)
+            if version_match:
+                return version_match.group(0)
+            return f"Unknown format: {result.stdout.strip()}"
         except subprocess.CalledProcessError as e:
-            logger.error(f"NS-3 script compilation error: {e}")
-            logger.error(f"Stderr: {e.stderr}")
-            return False
+            logger.error(f"Error getting NS-3 version: {e}")
+            return f"Error: {e}"
+        except Exception as e:
+            logger.error(f"Unexpected error getting NS-3 version: {e}")
+            return f"Unexpected error: {e}"
+            
+    def list_modules(self) -> List[str]:
+        """
+        List all available NS-3 modules.
+        
+        Returns:
+            List of module names
+        """
+        if not os.path.exists(self.ns3_script):
+            logger.warning("Cannot list modules: ns3 script not found")
+            return []
+            
+        try:
+            # Run ns3 show modules to get available modules
+            result = subprocess.run(
+                [self.ns3_script, "show", "modules"], 
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            # Extract module names
+            modules = []
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line and not line.startswith(('*', '=')):
+                    modules.append(line)
+            return modules
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error listing NS-3 modules: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error listing NS-3 modules: {e}")
+            return []
+
+    def run_simulation(self, sim_program: str, args: Dict[str, str]) -> Tuple[bool, str]:
+        """
+        Run an NS-3 simulation with the given program and arguments.
+        
+        Args:
+            sim_program: Name of the simulation program
+            args: Dictionary of arguments to pass to the simulation
+            
+        Returns:
+            (success, output) tuple
+        """
+        if not os.path.exists(self.ns3_script):
+            logger.error("Cannot run simulation: ns3 script not found")
+            return False, "NS-3 script not found"
+            
+        # Build command
+        cmd = [self.ns3_script, "run", sim_program]
+        
+        # Add arguments
+        for key, value in args.items():
+            cmd.append(f"--{key}={value}")
+            
+        try:
+            # Run simulation
+            logger.info(f"Running NS-3 simulation: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd, 
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            return True, result.stdout
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error running simulation: {e}")
+            return False, f"Error: {e.stderr}"
+        except Exception as e:
+            logger.error(f"Unexpected error running simulation: {e}")
+            return False, f"Unexpected error: {e}"
+            
+    def setup_ns3_script(self) -> str:
+        """
+        Sets up the NS-3 script for integrated simulation.
+        
+        Returns:
+            Path to the NS-3 script
+        """
+        # Implement NS-3 script setup logic
+        # This would create or modify NS-3 script files as needed
+        return os.path.join(self.ns3_path, "scratch", "integrated-sim.cc")
+    
+    def run_integrated_simulation(self) -> Dict[str, Any]:
+        """
+        Run the integrated NS-3 and blockchain simulation.
+        
+        Returns:
+            Dictionary with simulation results
+        """
+        self.logger.info("Starting integrated simulation")
+        self.simulation_running = True
+        
+        # Placeholder for integrated simulation logic
+        # In a real implementation, this would:
+        # 1. Set up the NS-3 simulation with blockchain integration
+        # 2. Run the simulation
+        # 3. Collect and process results
+        
+        self.simulation_running = False
+        self.logger.info("Integrated simulation completed")
+        
+        # Return results
+        return {
+            "simulation_time": self.config["simulation_time"],
+            "node_count": self.config["network"]["node_count"],
+            "blockchain_events": len(self.blockchain_events),
+            "network_events": len(self.network_events)
+        }
+    
+    def get_simulation_state(self) -> Dict[str, Any]:
+        """
+        Get the current state of the integrated simulation.
+        
+        Returns:
+            Dictionary with current simulation state
+        """
+        # Create a more meaningful simulation state
+        simulation_state = {
+            "timestamp": time.time(),
+            "simulation_name": self.config.get("simulation_name", "integrated_sim"),
+            "simulation_time_elapsed": self.config.get("simulation_time", 300.0),
+            "network": {
+                "nodes_count": self.config.get("network", {}).get("node_count", 0),
+                "validator_percentage": self.config.get("network", {}).get("validator_percentage", 0.2),
+                "area_size": self.config.get("network", {}).get("area_size", [1000, 1000]),
+                "connected_nodes": len(self.current_state.get("connected_nodes", [])),
+                "network_events": len(self.network_events)
+            },
+            "blockchain": {
+                "blocks_created": len(self.current_state.get("blocks", [])),
+                "transactions_processed": len(self.current_state.get("transactions", [])),
+                "blockchain_events": len(self.blockchain_events)
+            },
+            "performance": {
+                "average_latency": self.current_state.get("average_latency", 0.0),
+                "throughput": self.current_state.get("throughput", 0.0),
+                "consensus_rounds": self.current_state.get("consensus_rounds", 0)
+            }
+        }
+        
+        return simulation_state
+    
+    def save_results(self, results: Dict[str, Any], filename: Optional[str] = None) -> str:
+        """
+        Save simulation results to a file.
+        
+        Args:
+            results: Dictionary with simulation results
+            filename: Name of the output file (without path)
+            
+        Returns:
+            Path to the saved file
+        """
+        if not filename:
+            filename = f"{self.config['simulation_name']}_results.json"
+        
+        output_path = os.path.join(self.output_dir, filename)
+        
+        with open(output_path, 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        self.logger.info(f"Results saved to: {output_path}")
+        return output_path
+
+    def __str__(self) -> str:
+        """String representation of the NS3Adapter"""
+        return f"NS3Adapter(ns3_path={self.ns3_path})"
 
 
+# Module test code
 if __name__ == "__main__":
-    # Example usage
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
     try:
-        # Create adapter, specifying NS-3 path
-        adapter = NS3Adapter("/path/to/ns3")
+        # Create the adapter
+        adapter = NS3Adapter()
         
-        # Create script for simulation
-        script_path = adapter.create_ns3_manet_script()
+        # Run a simple test
+        results = adapter.run_integrated_simulation()
         
-        # Compile script
-        adapter.compile_ns3_script("manet-blockchain-sim")
+        # Save results
+        adapter.save_results(results)
         
-        # Create simple scenario
-        nodes = {
-            "base_station_1": {
-                "type": "base_station",
-                "position": (0.0, 0.0, 10.0),
-                "capabilities": {"computational_power": 100, "storage": 1000}
-            },
-            "node_1": {
-                "type": "regular",
-                "position": (100.0, 100.0, 1.5),
-                "capabilities": {"computational_power": 10, "storage": 50, "battery": 0.9}
-            },
-            "node_2": {
-                "type": "validator",
-                "position": (200.0, 200.0, 1.5),
-                "capabilities": {"computational_power": 20, "storage": 100, "battery": 0.8}
-            }
-        }
-        
-        links = {
-            "bs1_n1": {
-                "nodes": ["base_station_1", "node_1"],
-                "quality": 0.9,
-                "bandwidth": 100.0
-            },
-            "n1_n2": {
-                "nodes": ["node_1", "node_2"],
-                "quality": 0.7,
-                "bandwidth": 50.0
-            }
-        }
-        
-        params = {
-            "simulation_time": 100.0,
-            "wifi_standard": "80211g",
-            "propagation_model": "friis",
-            "routing_protocol": "aodv"
-        }
-        
-        # Create scenario file
-        scenario_file = adapter.create_scenario_file(nodes, links, params)
-        
-        # Run simulation
-        results = adapter.run_simulation(
-            scenario_file, 
-            duration=100.0,
-            time_resolution=0.1,
-            output_dir="/tmp/ns3_results"
-        )
-        
-        print(f"Simulation results: {results}")
+        print("Test completed successfully")
         
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
+        sys.exit(1)
