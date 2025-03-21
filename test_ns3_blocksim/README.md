@@ -1,24 +1,24 @@
-# Интеграция NS-3 и BlockSim для симуляции блокчейн-системы в 6G/MANET сетях
-## Обзор
-Этот проект демонстрирует интеграцию NS-3 (Network Simulator 3) и BlockSim для симуляции работы блокчейн-системы в условиях гибридной сетевой инфраструктуры 6G и MANET.
+# Integration of NS-3 and BlockSim for Blockchain System Simulation in 6G/MANET Networks
+## Overview
+This project demonstrates the integration of NS-3 (Network Simulator 3) and BlockSim for simulating a blockchain system in a hybrid network infrastructure of 6G and MANET.
 
-## Структура проекта
-- `config/` - конфигурационные файлы для различных сценариев симуляции
-- `models/` - модели для BlokSim и дополнительные классы для NS-3
-- `scripts/` - скрипты для запуска различных симуляций
-- `visualization/` - инструменты для визуализации результатов симуляции
-- `results/` - директория для сохранения результатов симуляций
+## Project Structure
+- `config/` - configuration files for various simulation scenarios
+- `models/` - models for BlockSim and additional classes for NS-3
+- `scripts/` - scripts for running different simulations
+- `visualization/` - tools for visualizing simulation results
+- `results/` - directory for saving simulation results
 
-## Требования
-- NS-3 (рекомендуется версия 3.36 или выше)
+## Requirements
+- NS-3 (version 3.36 or higher recommended)
 - Python 3.8+
-- Зависимости из файла requirements.txt
-- Qt5 (для NetAnim)
-- ccache (для ускорения сборки)
+- Dependencies from requirements.txt
+- Qt5 (for NetAnim)
+- ccache (for faster builds)
 
-## Быстрая установка и сборка
+## Quick Installation and Build
 
-1. Установите системные зависимости:
+1. Install system dependencies:
    ```bash
    # Ubuntu/Debian
    sudo apt install ccache qt5-default python3-dev cmake ninja-build
@@ -27,20 +27,20 @@
    sudo dnf install ccache qt5-devel python3-devel cmake ninja-build
    ```
 
-2. Установите Python-зависимости:
+2. Install Python dependencies:
    ```bash
    python3 -m pip install -r requirements.txt
    ```
 
-3. Настройте и соберите NS-3 с оптимизациями:
+3. Configure and build NS-3 with optimizations:
    ```bash
    cd external/ns-3
    
-   # Настройка ccache для ускорения пересборки
+   # Configure ccache for faster rebuilds
    export CCACHE_DIR=$(pwd)/.ccache
    export CCACHE_MAXSIZE=50G
    
-   # Конфигурация с оптимизациями
+   # Configuration with optimizations
    ./ns3 configure --enable-examples --enable-tests \
                   --enable-python-bindings \
                   --enable-modules='netanim' \
@@ -48,48 +48,48 @@
                   --enable-ccache \
                   --enable-ninja
    
-   # Параллельная сборка (используем все доступные ядра)
+   # Parallel build (using all available cores)
    ./ns3 build -j$(nproc)
    ```
 
-4. Настройте переменные окружения:
+4. Set environment variables:
    ```bash
    export NS3_DIR=$(pwd)
    cd ../..
    ```
 
-## Запуск симуляции с визуализацией
-1. Базовая симуляция:
+## Running Simulation with Visualization
+1. Basic simulation:
    ```bash
    python scripts/run_basic_simulation.py
    ```
 
-2. Запуск NetAnim для визуализации:
+2. Launch NetAnim for visualization:
    ```bash
    cd $NS3_DIR/netanim
    ./NetAnim
    ```
-   Затем откройте сгенерированный XML файл из директории results/
+   Then open the generated XML file from the results directory.
 
-## Сценарии моделирования
-1. **baseline_scenario** - базовая симуляция с фиксированными узлами
-2. **mobility_scenario** - сценарий с мобильными узлами по модели RandomWalk
-3. **urban_scenario** - сценарий городской среды с реалистичным движением узлов
+## Simulation Scenarios
+1. **baseline_scenario** - basic simulation with fixed nodes
+2. **mobility_scenario** - scenario with mobile nodes using the RandomWalk model
+3. **urban_scenario** - urban environment scenario with realistic node movement
 
-## Визуализация результатов
+## Visualizing Results
 ```bash
 python visualization/plot_results.py --input results/simulation_output.json
 ```
 
-## Примеры
-В директории `examples/` находятся детальные примеры использования системы для разных сценариев.
+## Examples
+The `examples/` directory contains detailed examples of using the system for different scenarios.
 
-## Советы по производительности
-- Используйте ccache для ускорения повторных сборок
-- Включайте только необходимые модули при конфигурации NS-3
-- Используйте оптимизированный профиль сборки
-- При разработке используйте debug профиль только при необходимости
-- Используйте ninja вместо make для более быстрой сборки
+## Performance Tips
+- Use ccache to speed up repeated builds
+- Only include necessary modules when configuring NS-3
+- Use optimized build profile
+- Use debug profile only when necessary during development
+- Use ninja instead of make for faster builds
 
-## Архитектура интеграции
-Интеграция NS-3 и BlockSim реализована через промежуточный интерфейс, который синхронизирует события между двумя симуляторами и обеспечивает согласованность данных.
+## Integration Architecture
+The integration of NS-3 and BlockSim is implemented through an intermediate interface that synchronizes events between the two simulators and ensures data consistency.
