@@ -131,8 +131,7 @@ def check_ns3_modules(ns3_path):
                     modules.append(item)
 
             logger.info(
-                "Found %(len(modules))s NS-3 modules in src directory",
-                {len(modules): len(modules)},
+                "Found %d NS-3 modules in src directory", len(modules)
             )
             return modules
 
@@ -168,7 +167,7 @@ def check_ns3_modules(ns3_path):
                     modules.append(module_name)
 
         logger.info(
-            "Detected %(len(modules))s NS-3 modules", {len(modules): len(modules)}
+            "Detected %d NS-3 modules", len(modules)
         )
         return modules
     except Exception as e:
@@ -357,11 +356,11 @@ def main():
     modules = check_ns3_modules(ns3_path)
     if modules:
         logger.info(
-            "Available NS-3 modules (%(len(modules))s):", {len(modules): len(modules)}
+            "Available NS-3 modules (%d):", len(modules)
         )
         if args.verbose:
             for i, module in enumerate(modules, 1):
-                logger.info("%s. %(module)s", i)
+                logger.info("%s. %s", i, module)
         else:
             logger.info(
                 ", ".join(modules[:10]) + (", ..." if len(modules) > 10 else "")
@@ -380,8 +379,7 @@ def main():
 
         if missing_modules:
             logger.warning(
-                "Missing required modules: %(', '.join(missing_modules))s",
-                {", ".join(missing_modules): ", ".join(missing_modules)},
+                "Missing required modules: %s", ", ".join(missing_modules)
             )
         else:
             logger.info("All required modules are present")

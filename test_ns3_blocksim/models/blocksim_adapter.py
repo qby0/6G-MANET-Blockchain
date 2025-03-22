@@ -36,7 +36,7 @@ class BlockSimAdapter:
             with open(config_path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
                 logger.info(
-                    "Конфигурация загружена из %s", config_path,
+                    "Конфигурация загружена из %s", config_path
                 )
 
         # BlockSim должен быть установлен
@@ -130,7 +130,7 @@ class BlockSimAdapter:
         }
 
         logger.info(
-            "Узел %s зарегистрирован как %s", (node_id, node_type),
+            "Узел %s зарегистрирован как %s", node_id, node_type
         )
         return True
 
@@ -153,7 +153,7 @@ class BlockSimAdapter:
 
         status_text = "активен" if is_active else "неактивен"
         logger.info(
-            "Статус узла %s обновлен: %s", (node_id, status_text),
+            "Статус узла %s обновлен: %s", node_id, status_text
         )
         return True
 
@@ -210,7 +210,7 @@ class BlockSimAdapter:
         self.transactions.append(transaction)
 
         logger.info(
-            "Транзакция %s создана между %s и %s", (tx_id, source_id, target_id),
+            "Транзакция %s создана между %s и %s", tx_id, source_id, target_id
         )
         return tx_id
 
@@ -317,7 +317,7 @@ class BlockSimAdapter:
         self.current_time += time_delta
 
         logger.debug(
-            "Время симуляции продвинуто с %s до %s", (old_time, self.current_time),
+            "Время симуляции продвинуто с %s до %s", old_time, self.current_time
         )
 
         # Проверяем, нужно ли создавать новые блоки
