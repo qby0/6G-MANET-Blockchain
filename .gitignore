@@ -29,6 +29,7 @@ env/
 ENV/
 *_venv/
 code_quality_venv/
+venv-mobility/
 
 # Environment variables
 .env
@@ -63,6 +64,7 @@ external/ns-3/build/
 external/ns-3/cmake-cache/
 test_ns3_blocksim/external/ns-3/build/
 test_ns3_blocksim/external/ns-3/cmake-cache/
+output/
 
 # Temporary files
 *.tmp
@@ -84,6 +86,7 @@ test_ns3_blocksim/external/netanim/
 
 # Results and temporary files
 results/*.json
+results/
 code_analysis_reports/
 *.orig
 .*~
@@ -105,3 +108,12 @@ coverage.xml
 
 # Fix script outputs
 fix_*.py
+test_random_improved.py
+test_random.py
+test_ns3_blocksim/external/netanim
+random_distribution_test.png
+random_distribution_improved_test.png
+h origin main
+h
+test_ns3_blocksim/external/netanim
+.cursorignore

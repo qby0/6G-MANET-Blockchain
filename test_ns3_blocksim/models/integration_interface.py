@@ -151,7 +151,7 @@ class IntegrationInterface:
             self.nodes[node2_id]["connections"].append(node1_id)
 
             logger.info(
-                "Соединение между узлами %s и %s установлено", (node1_id, node2_id),
+                "Соединение между узлами %s и %s установлено", node1_id, node2_id
             )
 
         return True

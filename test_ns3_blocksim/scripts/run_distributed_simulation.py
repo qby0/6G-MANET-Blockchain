@@ -318,6 +318,12 @@ def run_simulation(config, ns3_path: Optional[Any] = None):
                 config_file=os.path.join(get_config_dir(), "distributed.json"),
                 ns3_path=ns3_path,
             )
+            # Настройка NetAnim если визуализация включена
+            if config["visualization"]["generate_animation"]:
+                logger.info("Enabling NetAnim visualization for NS-3")
+                ns3_adapter.enable_visualization(
+                    update_interval=config["visualization"].get("frame_interval", 0.5)
+                )
             logger.info("NS3Adapter initialized successfully")
         except Exception as e:
             logger.error("Error initializing NS3Adapter: %s", str(e))
@@ -467,6 +473,10 @@ def main():
     parser.add_argument(
         "--ns3-path", help="Path to NS-3 installation (optional for NS-3 integration)"
     )
+    # Добавляем флаг для активации визуализации
+    parser.add_argument(
+        "--visualize", action="store_true", help="Enable NetAnim visualization"
+    )
     args = parser.parse_args()
 
     # Get absolute path of the config file
@@ -491,6 +501,11 @@ def main():
             print("Continuing without NS-3 integration")
 
     config = load_config(config_path)
+    
+    # Добавляем визуализацию в конфигурацию
+    if args.visualize:
+        config["visualization"]["generate_animation"] = True
+        print("NetAnim visualization enabled")
 
     # Ensure output directory exists
     os.makedirs(config["output"]["save_path"], exist_ok=True)

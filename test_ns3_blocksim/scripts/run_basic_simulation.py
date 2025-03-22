@@ -417,24 +417,19 @@ def run_simulation(args, config):
             blockchain_state = blocksim_adapter.get_blockchain_state()
 
             logger.info(
-                "Simulation time: %(current_time).2f/%s",
-                total_time,
+                "Simulation time: %.2f/%s", current_time, total_time
             )
             logger.info(
-                "Nodes in network: %(len(net_state['nodes']))s",
-                {len(net_state["nodes"]): len(net_state["nodes"])},
+                "Nodes in network: %d", len(net_state["nodes"])
             )
             logger.info(
-                "Connections in network: %(len(net_state['links']))s",
-                {len(net_state["links"]): len(net_state["links"])},
+                "Connections in network: %d", len(net_state["links"])
             )
             logger.info(
-                "Transactions in network: %(len(net_state['transactions']))s",
-                {len(net_state["transactions"]): len(net_state["transactions"])},
+                "Transactions in network: %d", len(net_state["transactions"])
             )
             logger.info(
-                "Blocks in blockchain: %(blockchain_state['blocks_count'])s",
-                {blockchain_state["blocks_count"]: blockchain_state["blocks_count"]},
+                "Blocks in blockchain: %d", blockchain_state["blocks_count"]
             )
             logger.info(
                 f"Pending transactions: {blockchain_state['pending_transactions']}"
@@ -538,13 +533,13 @@ def main():
             args.output_dir,
         )
         logger.info(
-            "Simulation results timestamp: %(results['timestamp'])s",
-            {results["timestamp"]: results["timestamp"]},
+            "Simulation results timestamp: %s",
+            results["timestamp"]
         )
         if results.get("animation_file"):
             logger.info(
-                "Animation file: %(results['animation_file'])s",
-                {results["animation_file"]: results["animation_file"]},
+                "Animation file: %s",
+                results["animation_file"]
             )
     else:
         logger.error("Simulation ended with error")

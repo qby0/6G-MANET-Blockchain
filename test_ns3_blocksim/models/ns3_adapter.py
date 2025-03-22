@@ -83,7 +83,7 @@ class NS3Adapter:
             )
 
         # Load configuration if file exists
-        if os.path.exists(self.config_file):
+        if os.path.isfile(self.config_file):
             with open(self.config_file, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
             self.logger.info(
@@ -120,6 +120,10 @@ class NS3Adapter:
         Returns:
             Dictionary with default configuration
         """
+        # Создаем базовый конфиг и output_dir для него
+        self.output_dir = os.path.join(get_results_dir(), "integrated_ns3_blockchain")
+        os.makedirs(self.output_dir, exist_ok=True)
+        
         return {
             "simulation_name": "integrated_ns3_blockchain",
             "simulation_time": 300.0,
@@ -129,9 +133,15 @@ class NS3Adapter:
                 "type": "manet",
                 "node_count": 20,
                 "validator_percentage": 0.2,
-                "area_size": [1000, 1000],
-                "mobility_model": "RandomWalk2dMobilityModel",
-                "speed": 5.0,
+                "area_size": [1000, 1000, 100],
+                "mobility_model": "SixGMobilityModel",
+                "speed": {
+                    "min": 0.5,
+                    "max": 30.0
+                },
+                "clustering_factor": 0.7,
+                "update_interval": 0.01,
+                "3d_enabled": True,
             },
             "blockchain": {
                 "consensus_threshold": 0.67,
@@ -238,8 +248,7 @@ class NS3Adapter:
         try:
             # Run simulation
             logger.info(
-                "Running NS-3 simulation: %(' '.join(cmd))s",
-                {" ".join(cmd): " ".join(cmd)},
+                "Running NS-3 simulation: %s", " ".join(cmd)
             )
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True, result.stdout
@@ -260,6 +269,45 @@ class NS3Adapter:
         # Implement NS-3 script setup logic
         # This would create or modify NS-3 script files as needed
         return os.path.join(self.ns3_path, "scratch", "integrated-sim.cc")
+
+    def create_ns3_manet_script(self, node_count: int, area_size: List[float], mobility_model: str) -> str:
+        """
+        Create a NS-3 script for MANET simulation.
+        
+        Args:
+            node_count: Number of nodes in the MANET
+            area_size: Size of the simulation area [x, y, z]
+            mobility_model: Mobility model name
+            
+        Returns:
+            Path to the created NS-3 script
+        """
+        # В реальном сценарии здесь был бы код для создания сценария NS-3
+        # Для демонстрации просто возвращаем путь к существующему скрипту или создаем заглушку
+        script_path = os.path.join(self.ns3_path, "scratch", "manet-sim.cc")
+        
+        self.logger.info("NS-3 MANET script would be created at %s", script_path)
+        return script_path
+
+    def enable_visualization(self, update_interval: float = 0.5) -> None:
+        """
+        Enable NetAnim visualization for the simulation.
+        
+        Args:
+            update_interval: Interval between animation frames in seconds
+            
+        Returns:
+            None
+        """
+        self.visualization_enabled = True
+        self.visualization_interval = update_interval
+        self.logger.info("NetAnim visualization enabled with update interval: %s seconds", update_interval)
+        
+        # Создаем директорию для вывода файлов анимации
+        anim_dir = os.path.join(self.output_dir, "animation")
+        os.makedirs(anim_dir, exist_ok=True)
+        self.animation_file = os.path.join(anim_dir, f"netanim_{int(time.time())}.xml")
+        self.logger.info("Animation will be saved to: %s", self.animation_file)
 
     def run_integrated_simulation(self) -> Dict[str, Any]:
         """

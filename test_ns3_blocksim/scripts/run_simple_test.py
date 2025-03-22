@@ -208,7 +208,7 @@ def run_simple_simulation(ns3_path):
         cmd = [ns3_executable, "run", example_name]
 
         logger.info(
-            "Running test simulation: %(' '.join(cmd))s", {" ".join(cmd): " ".join(cmd)}
+            "Running test simulation: %s", " ".join(cmd)
         )
 
         process = subprocess.run(
