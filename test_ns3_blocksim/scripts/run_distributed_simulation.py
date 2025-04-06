@@ -9,7 +9,7 @@ import secrets
 import sys
 import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Add parent directory to path to import models
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -25,7 +25,7 @@ from models.paths_manager import get_config_dir, get_ns3_dir, get_results_dir
 def setup_logging(config):
     """Set up logging based on configuration"""
     level_str = config.get("logging", {}).get("level", "INFO")
-    level = getattr(logging, level_str)
+    level = getattr(logging, level_str, logging.INFO)
 
     # Use paths_manager for log directory
     log_dir = get_results_dir()
@@ -35,172 +35,156 @@ def setup_logging(config):
         log_dir, f"distributed_simulation_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
     )
 
+    # Configure root logger
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
+        force=True,
     )
 
-    return logging.getLogger("distributed_simulation")
+    # Return a specific logger for this module
+    return logging.getLogger("distributed_simulation_script")
 
 
 def load_config(config_file):
     """Load configuration from file"""
-    with open(config_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logging.getLogger("load_config").error(
+            f"Configuration file not found: {config_file}"
+        )
+        raise
+    except json.JSONDecodeError as e:
+        logging.getLogger("load_config").error(
+            f"Error decoding JSON from {config_file}: {e}"
+        )
+        raise
+    except Exception as e:
+        logging.getLogger("load_config").error(
+            f"Error loading configuration from {config_file}: {e}", exc_info=True
+        )
+        raise
 
 
 def create_nodes(config, blockchain_manager):
-    """Create nodes based on configuration"""
+    """Create nodes based on configuration and register them"""
     logger = logging.getLogger("create_nodes")
 
     node_count = config["network"]["node_count"]
     validator_percentage = config["network"]["validator_percentage"]
     area_size = config["network"]["area_size"]
 
-    regular_props = config["node_properties"]["regular"]
-    validator_props = config["node_properties"]["validator"]
+    # Handle different property structures
+    node_props = config.get("node_properties", {})
+    regular_props = node_props.get("regular", {"coverage_radius": 150.0})
+    validator_props = node_props.get("validator", {"coverage_radius": 200.0})
 
     # Calculate number of validators
-    validator_count = int(node_count * validator_percentage)
+    validator_count = max(1, int(node_count * validator_percentage))
     regular_count = node_count - validator_count
 
     logger.info(
         f"Creating {validator_count} validators and {regular_count} regular nodes"
     )
 
-    nodes = []
+    nodes_created = []
+
+    # Use consistent naming scheme expected by NS3Adapter position reader ('node_0', 'node_1', ...)
+    node_index = 0
 
     # Create validators
-    for i in range(validator_count):
-        node_id = f"validator_{i}"
+    for _ in range(validator_count):
+        node_id = f"node_{node_index}"
         position = (
-            ((0) + (secrets.randbelow(int((area_size[0] - 0) * 1000)) / 1000.0)),
-            ((0) + (secrets.randbelow(int((area_size[1] - 0) * 1000)) / 1000.0)),
-            0,
+            secrets.randbelow(int(area_size[0])),
+            secrets.randbelow(int(area_size[1])),
+            0 if len(area_size) < 3 else secrets.randbelow(int(area_size[2])),
         )
 
-        blockchain_manager.register_node(
-            node_id=node_id,
-            node_type="validator",
-            position=position,
-            coverage_radius=validator_props["coverage_radius"],
-        )
-
-        nodes.append(node_id)
+        try:
+            blockchain_manager.register_node(
+                node_id=node_id,
+                node_type="validator",
+                position=position,
+                coverage_radius=float(validator_props["coverage_radius"]),
+            )
+            nodes_created.append(node_id)
+            node_index += 1
+        except Exception as e:
+            logger.error(
+                f"Failed to register validator node {node_id}: {e}", exc_info=True
+            )
 
     # Create regular nodes
-    for i in range(regular_count):
-        node_id = f"regular_{i}"
+    for _ in range(regular_count):
+        node_id = f"node_{node_index}"
         position = (
-            ((0) + (secrets.randbelow(int((area_size[0] - 0) * 1000)) / 1000.0)),
-            ((0) + (secrets.randbelow(int((area_size[1] - 0) * 1000)) / 1000.0)),
-            0,
+            secrets.randbelow(int(area_size[0])),
+            secrets.randbelow(int(area_size[1])),
+            0 if len(area_size) < 3 else secrets.randbelow(int(area_size[2])),
         )
+        try:
+            blockchain_manager.register_node(
+                node_id=node_id,
+                node_type="regular",
+                position=position,
+                coverage_radius=float(regular_props["coverage_radius"]),
+            )
+            nodes_created.append(node_id)
+            node_index += 1
+        except Exception as e:
+            logger.error(
+                f"Failed to register regular node {node_id}: {e}", exc_info=True
+            )
 
-        blockchain_manager.register_node(
-            node_id=node_id,
-            node_type="regular",
-            position=position,
-            coverage_radius=regular_props["coverage_radius"],
-        )
-
-        nodes.append(node_id)
-
-    logger.info("Created %s nodes", len(nodes))
-    return nodes
-
-
-def update_node_positions(
-    config, blockchain_manager, nodes, time_step, ns3_adapter: Optional[Any] = None
-):
-    """Update node positions based on mobility model"""
-    area_size = config["network"]["area_size"]
-    speed = config["network"]["speed"]
-
-    # If NS3 adapter is provided, we'll use its position data instead
-    if ns3_adapter and ns3_adapter.simulation_running:
-        # We would fetch positions from NS-3 here
-        # For now, use simple movement model
-        pass
-
-    for node_id in nodes:
-        if secrets.randbelow(100) < int(
-            0.8 * 100
-        ):  # 80% chance of movement in each step
-            # Get current position
-            if node_id in blockchain_manager.nodes:
-                current_pos = blockchain_manager.nodes[node_id].position
-                x, y, z = current_pos
-
-                # Simple random walk
-                dx = (
-                    (
-                        min(
-                            1.0,
-                            max(
-                                -1.0, -1.0 + secrets.randbelow(int(2.0 * 1000)) / 1000.0
-                            ),
-                        )
-                    )
-                    * speed
-                    * time_step
-                )
-                dy = (
-                    (
-                        min(
-                            1.0,
-                            max(
-                                -1.0, -1.0 + secrets.randbelow(int(2.0 * 1000)) / 1000.0
-                            ),
-                        )
-                    )
-                    * speed
-                    * time_step
-                )
-
-                # Ensure node stays within boundaries
-                new_x = max(0, min(area_size[0], x + dx))
-                new_y = max(0, min(area_size[1], y + dy))
-
-                # Update position
-                blockchain_manager.update_node_position(node_id, (new_x, new_y, z))
+    logger.info(
+        "Created and registered %s nodes in BlockchainManager", len(nodes_created)
+    )
+    return nodes_created
 
 
 def generate_transactions(config, blockchain_manager, nodes, current_time):
     """Generate random transactions from nodes"""
+    logger = logging.getLogger("generate_transactions")
     transaction_count = 0
+
+    node_props = config.get("node_properties", {})
+    regular_props = node_props.get("regular", {"transaction_generation_rate": 0.1})
+    validator_props = node_props.get("validator", {"transaction_generation_rate": 0.05})
 
     for node_id in nodes:
         if node_id not in blockchain_manager.nodes:
+            logger.warning(
+                "Node %s listed for tx generation but not found in manager.", node_id
+            )
             continue
 
         node = blockchain_manager.nodes[node_id]
-        generation_rate = config["node_properties"][node.node_type][
-            "transaction_generation_rate"
-        ]
+        # Get rate based on node type
+        if node.node_type == "validator":
+            generation_rate = validator_props.get("transaction_generation_rate", 0.05)
+        else:
+            generation_rate = regular_props.get("transaction_generation_rate", 0.1)
 
-        if random.random() < generation_rate:
+        if random.random() < float(generation_rate):
             # Create a simple transaction
             data = {
                 "timestamp": current_time,
                 "message": f"Transaction from {node_id} at {current_time:.2f}",
-                "value": (
-                    min(
-                        100.0,
-                        max(1.0, 1.0 + secrets.randbelow(int(99.0 * 1000)) / 1000.0),
-                    )
-                ),
+                "value": random.uniform(1.0, 100.0),
             }
 
-            transaction = blockchain_manager.create_transaction(node_id, data)
-            if transaction:
-                transaction_count += 1
-
-                # Propagate to neighbors
-                received_nodes = blockchain_manager.propagate_transaction(transaction)
-                logging.debug(
-                    f"Transaction from {node_id} propagated to {len(received_nodes)} nodes"
+            try:
+                transaction = blockchain_manager.create_transaction(node_id, data)
+                if transaction:
+                    transaction_count += 1
+            except Exception as e:
+                logger.error(
+                    f"Error creating/propagating transaction for {node_id}: {e}",
+                    exc_info=True,
                 )
 
     return transaction_count
@@ -208,7 +192,8 @@ def generate_transactions(config, blockchain_manager, nodes, current_time):
 
 def create_blocks(config, blockchain_manager, nodes, current_time):
     """Create blocks from pending transactions"""
-    block_time = config["blockchain"]["block_time"]
+    logger = logging.getLogger("create_blocks")
+    block_time = float(config["blockchain"].get("block_time", 10.0))
     block_count = 0
 
     # Only validator nodes can create blocks
@@ -219,303 +204,398 @@ def create_blocks(config, blockchain_manager, nodes, current_time):
         and blockchain_manager.nodes[node_id].node_type == "validator"
     ]
 
-    # Check if it's time to create a block (approximately every block_time seconds)
-    if current_time % block_time < 1.0:
-        # Select a random validator to create a block
+    # Check if it's time to create a block
+    # Use a small tolerance for floating point comparison
+    time_since_last_block = current_time % block_time
+    create_block_now = (
+        time_since_last_block < 0.1 or abs(time_since_last_block - block_time) < 0.1
+    )
+
+    # More robust check: create block roughly every block_time seconds
+    # Need to track last block creation time per validator or globally?
+    # Simple approach: one block creation attempt per interval globally
+    if create_block_now:
+        # Select a random validator to attempt block creation
         if validator_nodes:
             selected_validator = secrets.choice(validator_nodes)
 
-            # Create a block
-            new_block = blockchain_manager.create_block(selected_validator)
-            if new_block:
-                block_count += 1
-                logging.info(f"Block {new_block.index} created by {selected_validator}")
-
-                # Propagate the block
-                received_nodes = blockchain_manager.propagate_block(
-                    selected_validator, new_block
+            try:
+                # Attempt to create a block (manager handles pending tx)
+                new_block = blockchain_manager.create_block(selected_validator)
+                if new_block:
+                    block_count += 1
+                    logger.info(
+                        f"Block {new_block.index} created by {selected_validator} at time {current_time:.2f}"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Error creating/propagating block for {selected_validator}: {e}",
+                    exc_info=True,
                 )
-                logging.info(f"Block propagated to {len(received_nodes)} nodes")
 
     return block_count
 
 
-def save_simulation_state(config, blockchain_manager, current_time):
-    """Save current simulation state"""
-    save_interval = config["logging"].get("save_state_interval", 30.0)
+def save_simulation_state(config, blockchain_manager, current_time, last_save_time):
+    """Save current simulation state periodically"""
+    logger = logging.getLogger("save_state")
+    save_interval = float(config["logging"].get("save_state_interval", 30.0))
+    save_path_base = config["output"]["save_path"]
 
-    # Save state approximately every save_interval seconds
-    if current_time % save_interval < 1.0:
-        save_dir = os.path.join(
-            config["output"]["save_path"], f"state_{int(current_time)}"
+    if current_time - last_save_time >= save_interval:
+        state_file = os.path.join(
+            save_path_base, f"state_{int(round(current_time))}.json"
         )
-        os.makedirs(save_dir, exist_ok=True)
-
-        success = blockchain_manager.save_state(save_dir)
-        if success:
-            logging.info(f"Simulation state saved at t={current_time:.2f}")
-
-
-def log_metrics(config, blockchain_manager, metrics, current_time):
-    """Log metrics about the simulation"""
-    metrics["time"].append(current_time)
-
-    # Get network status
-    status = blockchain_manager.get_network_status()
-
-    # Log blockchain height
-    if "blockchain_height" in config["logging"]["metrics"]:
-        metrics["max_blockchain_height"].append(status["max_blockchain_height"])
-        metrics["min_blockchain_height"].append(status["min_blockchain_height"])
-        metrics["avg_blockchain_height"].append(status["avg_blockchain_height"])
-
-    # Log connectivity
-    if "connectivity" in config["logging"]["metrics"]:
-        # Calculate average neighbor count
-        avg_neighbors = 0
-        if blockchain_manager.nodes:
-            neighbor_counts = [
-                len(node.neighbors) for node in blockchain_manager.nodes.values()
-            ]
-            avg_neighbors = sum(neighbor_counts) / len(neighbor_counts)
-
-        metrics["avg_neighbors"].append(avg_neighbors)
-
-    return metrics
+        try:
+            blockchain_manager.save_state(state_file)
+            logger.info(
+                f"Simulation state saved to {state_file} at t={current_time:.2f}"
+            )
+            return current_time
+        except Exception as e:
+            logger.error(
+                f"Failed to save state at time {current_time:.2f}: {e}", exc_info=True
+            )
+    return last_save_time
 
 
-def save_metrics(config, metrics):
-    """Save metrics to output file"""
-    output_path = os.path.join(
-        config["output"]["save_path"],
-        f"metrics_{datetime.now().strftime('%Y%m%d%H%M%S')}.json",
-    )
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=4)
-
-    logging.info(f"Metrics saved to {output_path}")
-
-
-def run_simulation(config, ns3_path: Optional[Any] = None):
-    """Run the distributed blockchain simulation"""
+def run_simulation(config, config_path, ns3_path=None):
+    """Main simulation runner function"""
     logger = setup_logging(config)
     logger.info(
-        f"Starting distributed blockchain simulation: {config['simulation_name']}"
+        "Starting distributed blockchain simulation: %s",
+        config.get("simulation_name", "UnnamedSim"),
     )
 
-    # Set random seed for reproducibility
-    random.seed(config["random_seed"])
-
-    # Initialize NS3Adapter if path is provided
+    # --- Initialization ---
     ns3_adapter = None
     if ns3_path:
         try:
             logger.info("Initializing NS3Adapter with path: %s", ns3_path)
-            ns3_adapter = NS3Adapter(
-                config_file=os.path.join(get_config_dir(), "distributed.json"),
-                ns3_path=ns3_path,
+            # Initialize adapter, pass config path if needed, or let it use its default
+            adapter_config_file = config.get("ns3", {}).get("adapter_config")
+            ns3_adapter = NS3Adapter(config_file=adapter_config_file, ns3_path=ns3_path)
+            # Explicitly set the adapter's config to the main sim config if needed
+            # This depends on NS3Adapter's design; assume it uses its own or defaults for now.
+            # ns3_adapter.config = config # Uncomment if NS3Adapter needs the main config
+            logger.info(
+                "NS3Adapter initialized successfully. Version: %s",
+                ns3_adapter.get_ns3_version(),
             )
-            # Настройка NetAnim если визуализация включена
-            if config["visualization"]["generate_animation"]:
-                logger.info("Enabling NetAnim visualization for NS-3")
-                ns3_adapter.enable_visualization(
-                    update_interval=config["visualization"].get("frame_interval", 0.5)
-                )
-            logger.info("NS3Adapter initialized successfully")
         except Exception as e:
-            logger.error("Error initializing NS3Adapter: %s", str(e))
-            logger.warning("Continuing simulation without NS-3 integration")
-
-    # Create blockchain manager
-    config_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "config", "distributed.json")
-    )
-    blockchain_manager = DistributedBlockchainManager(config_path)
-
-    # Create nodes
-    nodes = create_nodes(config, blockchain_manager)
-
-    # Initialize blockchain in a distributed way
-    logger.info("Initializing blockchain network...")
-    success = blockchain_manager.initialize_blockchain_network()
-
-    if not success:
-        logger.error("Failed to initialize blockchain network")
+            logger.error("Failed to initialize NS3Adapter: %s", e, exc_info=True)
+            return False
+    else:
+        logger.warning(
+            "NS-3 path not provided, proceeding without NS-3 mobility/network simulation."
+        )
         return False
 
+    # Create blockchain manager
+    # Pass the config file PATH, which is now an argument
+    blockchain_manager = DistributedBlockchainManager(config_path=config_path)
+
+    # Create nodes and register them in the blockchain manager
+    # Use the node IDs ('node_0', 'node_1', ...) returned by create_nodes
+    sim_node_ids = create_nodes(config, blockchain_manager)
+    if not sim_node_ids:
+        logger.error("Failed to create simulation nodes.")
+        if ns3_adapter:
+            ns3_adapter.cleanup()
+        return False
+
+    logger.info("Initializing blockchain network...")
+    if not blockchain_manager.initialize_blockchain_network():
+        logger.error("Failed to initialize blockchain network.")
+        if ns3_adapter:
+            ns3_adapter.cleanup()
+        return False
     logger.info("Blockchain network initialized")
 
-    # Initialize metrics
-    metrics = {
-        "time": [],
-        "max_blockchain_height": [],
-        "min_blockchain_height": [],
-        "avg_blockchain_height": [],
-        "avg_neighbors": [],
-        "transactions_created": [],
-        "blocks_created": [],
-    }
-
-    # Start NS-3 simulation if adapter is available
+    # --- Start NS-3 Simulation (if adapter exists) ---
+    ns3_started = False
     if ns3_adapter:
-        logger.info("Setting up NS-3 simulation script")
-        ns3_adapter.setup_ns3_script()
-        logger.info("Starting NS-3 integrated simulation")
-        ns3_adapter.simulation_running = True
+        logger.info("Starting NS-3 background simulation...")
+        sim_duration = float(config.get("simulation_time", 300.0))
+        # Get resolution from config, default if not present
+        ns3_resolution = float(config.get("ns3", {}).get("position_resolution", 0.5))
+        # NS-3 output dir should be distinct or managed
+        # Ensure base output path exists
+        base_output_path = config["output"]["save_path"]
+        os.makedirs(base_output_path, exist_ok=True)
+        ns3_output_dir = os.path.join(base_output_path, "ns3_run_output")
 
-    # Main simulation loop
-    time_step = 1.0  # Update every second
-    simulation_time = config["simulation_time"]
-    current_time = 0.0
-
-    transaction_count = 0
-    block_count = 0
-
-    logger.info(
-        "Running simulation for %s seconds",
-        simulation_time,
-    )
-
-    simulation_start = time.time()
-
-    while current_time < simulation_time:
-        # Update node positions
-        update_node_positions(config, blockchain_manager, nodes, time_step, ns3_adapter)
-
-        # Update network topology
-        blockchain_manager.update_topology()
-
-        # Generate transactions
-        new_transactions = generate_transactions(
-            config, blockchain_manager, nodes, current_time
+        ns3_started = ns3_adapter.start_ns3_simulation(
+            duration=sim_duration + 5.0,
+            resolution=ns3_resolution,
+            output_dir=ns3_output_dir,
         )
-        transaction_count += new_transactions
+        if not ns3_started:
+            logger.error("Failed to start NS-3 simulation process. Aborting.")
+            try:
+                blockchain_manager.save_state(
+                    os.path.join(
+                        config["output"]["save_path"],
+                        "final_state_ns3_start_error.json",
+                    )
+                )
+            except Exception:
+                pass
+            return False
+        logger.info("NS-3 simulation process appears to have started successfully.")
 
-        # Create blocks
-        new_blocks = create_blocks(config, blockchain_manager, nodes, current_time)
-        block_count += new_blocks
+    # --- Main Simulation Loop ---
+    start_time = time.time()
+    current_sim_time = 0.0
+    # Use a smaller time step for the Python loop to react faster to NS-3 updates
+    python_loop_step = float(config.get("python_loop_step", 0.2))
+    last_progress_log_time = -10.0
+    last_save_time = -1.0
 
-        # Save simulation state periodically
-        save_simulation_state(config, blockchain_manager, current_time)
+    total_transactions = 0
+    total_blocks = 0
 
-        # Log metrics
-        metrics["transactions_created"].append(new_transactions)
-        metrics["blocks_created"].append(new_blocks)
-        metrics = log_metrics(config, blockchain_manager, metrics, current_time)
+    sim_duration = float(config.get("simulation_time", 300.0))
+    logger.info("Running simulation for %s seconds", sim_duration)
 
-        # Progress update
-        if int(current_time) % 10 == 0 and current_time > 0:
-            progress = (current_time / simulation_time) * 100
-            elapsed = time.time() - simulation_start
-            remaining = (
-                (elapsed / current_time) * (simulation_time - current_time)
-                if current_time > 0
-                else 0
+    simulation_successful = True
+
+    try:
+        while current_sim_time < sim_duration:
+            loop_start_time = time.time()
+
+            # 1. Get Node Positions from NS-3 (if integrated)
+            if ns3_adapter and ns3_started:
+                if (
+                    ns3_adapter.ns3_process
+                    and ns3_adapter.ns3_process.poll() is not None
+                ):
+                    logger.error(
+                        "NS-3 process terminated prematurely with code %d. Stopping simulation.",
+                        ns3_adapter.ns3_process.poll(),
+                    )
+                    simulation_successful = False
+                    break
+
+                ns3_positions = ns3_adapter.get_ns3_node_positions()
+                if ns3_positions:
+                    nodes_updated = 0
+                    for node_id, pos in ns3_positions.items():
+                        if node_id in blockchain_manager.nodes:
+                            if blockchain_manager.update_node_position(node_id, pos):
+                                nodes_updated += 1
+                        else:
+                            logger.warning(
+                                "Node ID %s from NS-3 not found in Blockchain Manager",
+                                node_id,
+                            )
+
+            # If not using NS-3, we currently don't have a fallback mobility model here.
+            # The simulation would run with static nodes if NS-3 isn't used.
+
+            # 2. Update Node Connections (based on potentially updated positions)
+            blockchain_manager.update_topology()
+
+            # 3. Generate Transactions
+            tx_count = generate_transactions(
+                config, blockchain_manager, sim_node_ids, current_sim_time
+            )
+            total_transactions += tx_count
+
+            # 4. Process Pending Transactions (within Blockchain Manager)
+            # Removing incorrect call - processing is handled by block creation
+            # blockchain_manager.process_all_pending_transactions()
+
+            # 5. Create and Propagate Blocks (handle consensus internally)
+            block_count = create_blocks(
+                config, blockchain_manager, sim_node_ids, current_sim_time
+            )
+            total_blocks += block_count
+
+            # 6. Save State Periodically
+            last_save_time = save_simulation_state(
+                config, blockchain_manager, current_sim_time, last_save_time
             )
 
-            logger.info(
-                f"Simulation progress: {progress:.1f}% (Time: {current_time:.1f}s, "
-                f"Transactions: {transaction_count}, Blocks: {block_count})"
-            )
-            logger.info("Estimated time remaining: %.1fs", remaining)
+            # 7. Collect Metrics
+            # Removing attempt to collect non-existent metrics
+            # try:
+            #     current_metrics = blockchain_manager.collect_metrics()
+            #     current_metrics['simulation_time'] = round(current_sim_time, 2)
+            #     metrics.append(current_metrics)
+            # except Exception as e:
+            #     logger.warning(f"Failed to collect metrics at time {current_sim_time:.2f}: {e}")
 
-        # Increment time
-        current_time += time_step
+            # 8. Advance Time and Progress Log
+            current_sim_time += python_loop_step
 
-    # Stop NS-3 simulation if running
-    if ns3_adapter and ns3_adapter.simulation_running:
-        logger.info("Stopping NS-3 simulation")
-        ns3_adapter.simulation_running = False
-        # Save NS-3 results
-        ns3_results = ns3_adapter.get_simulation_state()
-        ns3_output_path = os.path.join(
-            config["output"]["save_path"],
-            f"ns3_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.json",
+            elapsed_wall_time = time.time() - start_time
+            loop_wall_time = time.time() - loop_start_time
+
+            if current_sim_time - last_progress_log_time >= 10.0:
+                progress = (current_sim_time / sim_duration) * 100
+                est_remaining_wall_time = (
+                    (
+                        elapsed_wall_time
+                        / current_sim_time
+                        * (sim_duration - current_sim_time)
+                    )
+                    if current_sim_time > 0
+                    else 0
+                )
+                logger.info(
+                    f"Sim Progress: {progress:.1f}% (Sim Time: {current_sim_time:.1f}s / {sim_duration}s, "
+                    f"Wall Time: {elapsed_wall_time:.1f}s, Tx: {total_transactions}, Blk: {total_blocks})"
+                )
+                last_progress_log_time = current_sim_time
+
+            sleep_duration = python_loop_step - loop_wall_time
+            if sleep_duration > 0:
+                time.sleep(sleep_duration)
+
+    except KeyboardInterrupt:
+        logger.warning("Simulation interrupted by user.")
+        simulation_successful = False
+    except Exception as e:
+        logger.error("Critical error during simulation loop: %s", e, exc_info=True)
+        simulation_successful = False
+    finally:
+        logger.info("Simulation loop finished or interrupted.")
+        if ns3_adapter:
+            logger.info("Stopping NS-3 simulation process...")
+            ns3_adapter.cleanup()
+            logger.info("NS-3 simulation stop sequence initiated.")
+
+        final_state_path = os.path.join(
+            config["output"]["save_path"], "final_state.json"
         )
-        ns3_adapter.save_results(ns3_results, os.path.basename(ns3_output_path))
+        try:
+            blockchain_manager.save_state(final_state_path)
+            logger.info(f"Final simulation state saved to {final_state_path}")
+        except Exception as e:
+            logger.error(f"Failed to save final state: {e}")
 
-    simulation_end = time.time()
-    simulation_duration = simulation_end - simulation_start
+        total_elapsed_wall_time = time.time() - start_time
+        logger.info(
+            f"Simulation completed. Success: {simulation_successful}. Wall time: {total_elapsed_wall_time:.2f} seconds"
+        )
+        logger.info(f"Total transactions generated: {total_transactions}")
+        logger.info(f"Total blocks created: {total_blocks}")
 
-    logger.info(
-        "Simulation completed in %.2f seconds",
-        simulation_duration,
-    )
-    logger.info("Total transactions: %s", transaction_count)
-    logger.info("Total blocks: %s", block_count)
+        try:
+            final_status = blockchain_manager.get_network_status()
+            logger.info(f"Final network status: {final_status}")
+        except Exception as e:
+            logger.error(f"Failed to get final network status: {e}")
 
-    # Final network status
-    status = blockchain_manager.get_network_status()
-    logger.info("Final network status: %s", status)
-
-    # Save metrics
-    save_metrics(config, metrics)
-
-    return True
+    return simulation_successful
 
 
 def main():
+    """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Run distributed blockchain simulation"
+        description="Run distributed blockchain simulation with optional NS-3 integration"
     )
 
-    # Change default path to be relative to the script location
+    # Default config path relative to this script's location -> config dir
     default_config_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "config", "distributed.json")
     )
     parser.add_argument(
-        "-c", "--config", default=default_config_path, help="Path to config file"
+        "-c",
+        "--config",
+        default=default_config_path,
+        help=f"Path to config file (default: {default_config_path})",
     )
     # Add NS-3 path argument
     parser.add_argument(
-        "--ns3-path", help="Path to NS-3 installation (optional for NS-3 integration)"
+        "--ns3-path",
+        help="Path to NS-3 installation directory (required for NS-3 integration)",
     )
-    # Добавляем флаг для активации визуализации
+    # Argument to disable NS-3 even if path is found (for debugging)
     parser.add_argument(
-        "--visualize", action="store_true", help="Enable NetAnim visualization"
+        "--no-ns3",
+        action="store_true",
+        help="Force running without NS-3 integration, even if ns3-path is found.",
     )
     args = parser.parse_args()
 
     # Get absolute path of the config file
     config_path = os.path.abspath(args.config)
 
-    if not os.path.exists(config_path):
-        print(f"Config file not found: {config_path}")
-        print(f"Make sure the file exists or provide correct path with -c option")
-        return 1
-
-    # Get NS-3 path
-    ns3_path = None
-    if args.ns3_path:
-        ns3_path = args.ns3_path
-    else:
-        # Try to get NS-3 path from paths_manager
-        ns3_path = get_ns3_dir()
-        if ns3_path:
-            print(f"Using NS-3 path from paths_manager: {ns3_path}")
-        else:
-            print("NS-3 path not provided and not found in paths_manager")
-            print("Continuing without NS-3 integration")
-
-    config = load_config(config_path)
-    
-    # Добавляем визуализацию в конфигурацию
-    if args.visualize:
-        config["visualization"]["generate_animation"] = True
-        print("NetAnim visualization enabled")
-
-    # Ensure output directory exists
-    os.makedirs(config["output"]["save_path"], exist_ok=True)
-
+    # Load configuration first to set up logging properly
     try:
-        success = run_simulation(config, ns3_path)
-        return 0 if success else 1
-    except Exception as e:
-        logging.exception(f"Error running simulation: {e}")
+        config = load_config(config_path)
+    except Exception:
+        # Error already logged by load_config
         return 1
+
+    # Setup logging based on loaded config (or defaults if logging section missing)
+    logger = setup_logging(config)
+
+    # Determine NS-3 path
+    ns3_path = None
+    if args.no_ns3:
+        logger.info("--no-ns3 flag set. NS-3 integration will be disabled.")
+    else:
+        if args.ns3_path:
+            ns3_path = os.path.abspath(args.ns3_path)
+            logger.info(f"Using provided NS-3 path: {ns3_path}")
+        else:
+            # Try to get NS-3 path from paths_manager
+            ns3_path_from_manager = get_ns3_dir()
+            if ns3_path_from_manager:
+                ns3_path = ns3_path_from_manager
+                logger.info(f"Using NS-3 path from paths_manager: {ns3_path}")
+            else:
+                logger.warning(
+                    "NS-3 path not provided via --ns3-path and not found in paths_manager."
+                )
+                logger.warning("Proceeding without NS-3 integration.")
+
+        if ns3_path and not os.path.isdir(ns3_path):
+            logger.error(
+                f"Determined NS-3 path does not exist or is not a directory: {ns3_path}"
+            )
+            ns3_path = None
+
+    # Ensure 'output' key and 'save_path' exist in config before running sim
+    if "output" not in config or "save_path" not in config["output"]:
+        logger.warning(
+            "Configuration file is missing 'output' section or 'save_path' key."
+        )
+        default_output_dir = os.path.join(
+            get_results_dir() or ".", "default_sim_output"
+        )
+        config["output"] = config.get("output", {})
+        config["output"]["save_path"] = config["output"].get(
+            "save_path", default_output_dir
+        )
+        logger.warning("Using default output path: %s", config["output"]["save_path"])
+
+    # Ensure the base output directory exists before simulation starts
+    try:
+        os.makedirs(config["output"]["save_path"], exist_ok=True)
+    except OSError as e:
+        logger.error(
+            f"Could not create base output directory {config['output']['save_path']}: {e}"
+        )
+        return 1
+
+    # Run the main simulation logic
+    exit_code = 0
+    try:
+        # Pass config_path to run_simulation
+        success = run_simulation(config, config_path, ns3_path)
+        exit_code = 0 if success else 1
+    except Exception as e:
+        logger.critical(
+            f"Unhandled critical error during simulation execution: {e}", exc_info=True
+        )
+        exit_code = 1
+
+    logger.info(f"Simulation script finished with exit code {exit_code}.")
+    return exit_code
 
 
 if __name__ == "__main__":
