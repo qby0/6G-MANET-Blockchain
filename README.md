@@ -1,204 +1,156 @@
-# Blockchain System Algorithm at the Junction of 6G and MANET Networks
+# Blockchain-Enhanced 6G-MANET Integration
+
+## Overview
+
+This document outlines a conceptual algorithm for integrating a stationary 6G network infrastructure with a dynamic Mobile Ad Hoc Network (MANET) using blockchain technology. The goal is to enhance security, trust, adaptability, and efficiency in hybrid network environments characterized by both fixed infrastructure and mobile, self-organizing nodes.
+
+## Project Goals
+
+*   **Enhanced Security:** Provide robust mechanisms for node authentication, secure communication, and resistance against common network attacks (e.g., Sybil attacks).
+*   **Decentralized Trust:** Establish a reliable trust and reputation system for network nodes using blockchain-based ratings.
+*   **Adaptive Routing:** Enable dynamic route construction and verification that accounts for network topology changes, node trustworthiness, and resource availability.
+*   **Resilient Operation:** Ensure continuous network operation and efficient recovery from node failures or network partitioning.
+*   **Efficient Resource Management:** Optimize network performance and energy consumption, particularly for resource-constrained MANET nodes.
+*   **Transparent Monitoring:** Provide a verifiable log of network events, node status, and route information.
 
 ## 1. System Architecture
 
-The system is a hybrid network infrastructure that includes:
-- Stationary 6G base station
-- Dynamic MANET network with mobile nodes
-- Distributed blockchain registry for registration, validation, and monitoring of nodes and routes
+The proposed system comprises:
 
-## 2. System Initialization
+*   **6G Base Station:** A stationary access point providing high-bandwidth connectivity and acting as a primary trust anchor and gateway.
+*   **MANET Nodes:** Mobile devices forming a dynamic, self-configuring network beyond the direct coverage of the base station.
+*   **Distributed Ledger (Blockchain):** A shared, immutable registry storing critical network information, including:
+    *   Node identities and credentials
+    *   Node trust ratings
+    *   Network topology summaries
+    *   Validated route information
+    *   Security events
 
-1. The 6G base station initializes the blockchain genesis block
-2. Initial network parameters are defined:
-   - Base station coverage radius
-   - Threshold values for verification
-   - Time intervals for activity checks
-   - Consensus algorithm parameters
-3. Primary trusted nodes within the base station radius are registered
-4. An initial set of validators is formed from the trusted nodes
+## 2. Node Lifecycle Management
 
-## 3. Registration of New Nodes
+### 2.1. Initialization
 
-1. **Node entering the base station coverage area**:
-   1. The new node sends a registration request to the network
-   2. The base station verifies the digital signature and credentials of the node
-   3. Upon successful verification, the station generates a node registration transaction
-   4. The transaction is placed in the blockchain after consensus confirmation
-   5. The node receives a unique identifier and cryptographic keys
+1.  The 6G base station initializes the blockchain's genesis block.
+2.  Initial network parameters (coverage, thresholds, consensus settings) are defined.
+3.  Trusted nodes within the base station's range are registered, forming an initial set of validators.
 
-2. **Node entering another MANET node's zone (outside base station coverage)**:
-   1. The node sends a request to the nearest active MANET node
-   2. The receiving node verifies the digital signature of the requester
-   3. A registration transaction is created and propagated through the network
-   4. Confirmation from several neighboring nodes (quorum) is required
-   5. After consensus is reached, the node is added to the blockchain registry with an "unverified" marker
-   6. The node receives limited rights until confirmed by the base station
+### 2.2. Registration
 
-## 4. Security Mechanisms
+*   **Within 6G Coverage:**
+    1.  New node sends a signed registration request to the base station.
+    2.  Base station verifies credentials.
+    3.  On success, a registration transaction is created and added to the blockchain via consensus.
+    4.  Node receives a unique ID and keys.
+*   **Outside 6G Coverage (MANET Zone):**
+    1.  New node sends a request to a nearby active MANET node.
+    2.  Receiving node verifies the signature.
+    3.  A registration transaction is created and propagated.
+    4.  Confirmation from a quorum of neighboring nodes is required.
+    5.  Post-consensus, the node is registered on the blockchain, potentially with an "unverified" or "probationary" status and limited privileges until further validation (e.g., interaction with the base station or demonstrating sustained trustworthy behavior). *Design Note: The security implications and specific limitations of this status require careful definition.*
 
-1. **Multi-level authentication**:
-   1. Verification of digital certificates with each connection
-   2. Periodic rotation of session keys
-   3. Use of zero-knowledge proof scheme for identity verification
+### 2.3. Activity Monitoring
 
-2. **Node rating system**:
-   1. Each node has a dynamic trust rating
-   2. Rating increases with successful data transmission
-   3. Rating decreases with anomalous behavior or failures
-   4. Nodes with low ratings are excluded from critical routes
+*   **Heartbeats:** Nodes periodically broadcast "heartbeat" transactions containing status updates (location, battery, load). Frequency may adapt to network conditions. Missed heartbeats signal potential node unavailability.
+*   **Neighbor Verification:** Nodes monitor immediate neighbors and report their status, helping to validate heartbeat information and detect inconsistencies.
+*   **Data Correlation:** Smart contracts analyze monitoring data to maintain an up-to-date network map, flag anomalies, and potentially adjust node status or ratings. *Design Note: Storing high-frequency monitoring data directly on the main chain might require optimization (e.g., aggregation, off-chain processing) to ensure scalability.*
 
-3. **Protection against Sybil attacks**:
-   1. Limitation of registration rate for new nodes
-   2. Physical verification through response time measurement
-   3. Analysis of spatial distribution of nodes
-   4. Requirement for confirmation from geographically distributed nodes
+## 3. Security Mechanisms
 
-## 5. Node Activity Monitoring
+### 3.1. Authentication
 
-1. **Regular activity checks**:
-   1. Each node sends "heartbeat" transactions at specified intervals
-   2. Sending frequency is dynamically determined based on network load
-   3. The transaction contains current node parameters (battery charge, GPS coordinates, load)
-   4. Missing more than N consecutive heartbeat signals indicates node loss
+*   **Multi-Level Approach:**
+    *   Digital certificate verification upon connection.
+    *   Periodic rotation of session keys.
+    *   Potential use of Zero-Knowledge Proofs (ZKPs) for privacy-preserving identity verification. *Design Note: Resource requirements for ZKPs on constrained devices need evaluation.*
 
-2. **Monitoring of neighboring nodes**:
-   1. Each node maintains a table of neighbors within direct visibility radius
-   2. Periodically sends confirmation of neighboring nodes' activity
-   3. When discrepancies are detected (node claims activity, but neighbors don't see it), verification is initiated
+### 3.2. Trust and Reputation
 
-3. **Activity data processing**:
-   1. Smart contract correlates data from different nodes
-   2. Forms an up-to-date network map in the blockchain
-   3. Marks suspicious nodes for additional verification
-   4. Automatically excludes inactive nodes from routes
+*   **Dynamic Node Rating:** Each node maintains a trust score stored on the blockchain.
+    *   Rating increases with successful participation (e.g., reliable data relay).
+    *   Rating decreases due to detected failures or malicious behavior.
+    *   Low-rated nodes may be excluded from sensitive routes or roles (e.g., validation).
 
-## 6. Route Construction and Verification
+### 3.3. Attack Resistance
 
-1. **Route initialization**:
-   1. The sending node forms a route request to the receiving node
-   2. The request includes route requirements (reliability, speed, priority)
-   3. The request is signed with the sender's digital signature
+*   **Sybil Attack Mitigation:**
+    *   Rate limiting for new node registrations.
+    *   Potential use of physical layer metrics (e.g., signal timing, location plausibility).
+    *   Requiring validation from geographically diverse or highly trusted nodes.
+*   **Anomaly Detection:** Continuous analysis of network traffic and node behavior patterns to identify potential attacks or compromised nodes.
+*   **Response:** Automated mechanisms to isolate suspicious nodes and alert administrators.
 
-2. **Route formation**:
-   1. Smart contract analyzes the current network topology from the blockchain
-   2. A modified Dijkstra's algorithm is applied, taking into account:
-      - Node trust rating
-      - Current node load
-      - Battery charge level
-      - Connection stability
-   3. Several alternative routes are formed
+## 4. Routing and Topology Management
 
-3. **Route verification**:
-   1. Each proposed route is verified by validator nodes
-   2. The availability of all nodes in the route is checked
-   3. Route security parameters are evaluated
-   4. Verification result is recorded in the blockchain
+### 4.1. Route Construction
 
-4. **Route selection and use**:
-   1. The sender receives a list of verified routes
-   2. The optimal route is selected based on specified criteria
-   3. Route nodes are notified of inclusion in the active route
-   4. Each data transmission along the route is registered in the blockchain
-   5. Smart contract tracks transmission success to update node ratings
+1.  Sender initiates a route request specifying requirements (latency, reliability).
+2.  Routing algorithms (e.g., modified Dijkstra, AODV) utilize network topology information.
+3.  Blockchain data provides crucial metrics for path selection: node trust ratings, reported load, battery levels, connection stability history. *Design Note: Complex calculations are likely performed off-chain by nodes, querying the blockchain for necessary metrics, rather than executing the entire routing algorithm within a smart contract.*
+4.  Multiple potential routes may be identified.
 
-## 7. Adaptation to Topology Changes
+### 4.2. Route Verification and Selection
 
-1. **Detection of changes**:
-   1. Continuous monitoring of node status
-   2. Detection of new node connections
-   3. Identification of disconnections or failures of existing nodes
-   4. Tracking changes in connection quality
+1.  Proposed routes can be submitted for verification by network validators.
+2.  Verification checks node availability, security compliance, and potentially resource commitments.
+3.  Verification results are recorded on the blockchain.
+4.  Sender selects the optimal verified route based on its criteria.
+5.  Data transmissions along the route can be logged (or sampled) on the blockchain to inform node ratings.
 
-2. **Real-time topology updates**:
-   1. Changes are recorded in the blockchain with special transactions
-   2. A procedure for reassessing affected routes is initiated
-   3. Validators confirm the topology update
-   4. Updated information is propagated through the network
+### 4.3. Adaptation to Changes
 
-3. **Route reconstruction**:
-   1. Critical changes trigger a route reconstruction procedure
-   2. Proactive creation of alternative routes for mission-critical connections
-   3. Temporary routes are activated until full verification of new permanent routes
+1.  Node status changes (joins, leaves, failures, connectivity fluctuations) are detected through monitoring.
+2.  Significant topology changes trigger blockchain transactions.
+3.  Affected routes are reassessed or reconstructed proactively based on updated topology and node status information.
 
-## 8. Consensus Mechanism
+## 5. Consensus Mechanism
 
-1. **Hybrid consensus**:
-   1. In the direct 6G coverage area: lightweight Proof-of-Authority (PoA)
-   2. Outside the coverage area: modified Practical Byzantine Fault Tolerance (PBFT)
-   3. The base station has a special role in verifying critical transactions
+*   **Hybrid Approach:**
+    *   **Within 6G Coverage:** Lightweight consensus (e.g., Proof-of-Authority (PoA) anchored by the base station and trusted nodes).
+    *   **MANET Zone:** Byzantine Fault Tolerant consensus (e.g., variant of PBFT) suitable for dynamic environments. *Design Note: Ensuring seamless and secure transition between consensus zones is a key challenge.*
+*   **Hierarchical Validation:** Nodes may be categorized (e.g., full validators, light validators) based on resources, trust, and stability, allowing delegation of intensive tasks.
+*   **Optimization:** Techniques like validator set management, transaction prioritization, and potentially sharding may be employed to enhance performance.
 
-2. **Hierarchical validation**:
-   1. Nodes are divided into three categories: full validators, light validators, regular nodes
-   2. The category is determined based on computational resources, connection stability, and trust rating
-   3. Heavy operations are delegated to full validators
-   4. Light operations can be performed by all nodes
+## 6. Fault Tolerance and Recovery
 
-3. **Consensus optimization**:
-   1. Dynamic regulation of the number of validators depending on the load
-   2. Blockchain sharding for parallel transaction processing
-   3. Prioritization of mission-critical transactions (related to network security and integrity)
+*   **Failure Detection:** Monitoring mechanisms identify node failures or network partitions (loss of synchronization, inconsistent blockchain views).
+*   **Autonomous Operation:** Disconnected network segments aim to continue operating autonomously.
+*   **Reconciliation:** Upon reconnection, a defined procedure merges blockchain states, resolving conflicts based on predefined rules (e.g., favoring segments with higher trust validators or base station connection). Potentially conflicting transactions may be rolled back.
+*   **Local Reorganization:** Nodes adjacent to a failed node attempt to automatically restructure local connections to maintain network integrity.
 
-## 9. Recovery After Failures
+## 7. Performance and Energy Optimization
 
-1. **Failure detection**:
-   1. Continuous checking of node synchronization
-   2. Identification of inconsistencies in local blockchain copies
-   3. Detection of temporary network partitioning
+*   **Adaptive Resource Management:** Nodes adjust behavior based on battery levels (energy-saving modes) and network load (dynamic task allocation).
+*   **Data Optimization:** Use of lightweight transaction formats, potential pruning/summarization of historical blockchain data (using techniques like state commitments), and adaptive block parameters.
+*   **Predictive Mechanisms:** Analyzing node mobility patterns to anticipate topology changes and proactively adjust routing or resource allocation.
 
-2. **Recovery procedure**:
-   1. Segmented parts of the network continue to function autonomously
-   2. When connection is restored, a blockchain merging procedure is initiated
-   3. Conflict resolution based on strict priority rules
-   4. Rollback of transactions that did not reach the necessary consensus
+## 8. System Updates
 
-3. **Local reorganization**:
-   1. When a key node fails, adjacent nodes automatically restructure connections
-   2. Temporary enhanced verification mode for new connections
-   3. Priority restoration of critical routes
+*   Secure distribution and verification of software/policy updates via the blockchain.
+*   Multi-stage validation process involving trusted nodes.
+*   Gradual rollout mechanisms with rollback capabilities.
 
-## 10. Performance and Energy Consumption Optimization
+## 9. Project Status
 
-1. **Adaptive resource management**:
-   1. Nodes with low battery charge are switched to energy-saving mode
-   2. Dynamic load distribution between nodes
-   3. Automatic scaling of validation operations
+*(Placeholder: Describe the current state - e.g., Conceptual, In Development, Simulation Phase)*
 
-2. **Compression and optimization of blockchain data**:
-   1. Use of lightweight transaction format for mobile nodes
-   2. Pruning of historical data for devices with limited memory
-   3. Optimization of block size depending on network bandwidth
+## 10. Getting Started / Usage
 
-3. **Prediction of changes**:
-   1. Analysis of node movement patterns to predict topology changes
-   2. Advance preparation of alternative routes
-   3. Proactive regulation of load based on forecasts
+*(Placeholder: Instructions on how to simulate, run, or interact with the system, if applicable)*
 
-## 11. Security Policies and Updates
+## 11. Simulation Environment
 
-1. **Anomalous behavior detection**:
-   1. Continuous analysis of node activity
-   2. Identification of inconsistencies in data transmission patterns
-   3. Detection of protocol modification attempts
+*(Placeholder: Briefly mention the simulation tools and methodology used for validation. Detailed simulation setup and results could reside in a separate `SIMULATION.md` file.)*
 
-2. **Attack response**:
-   1. Automatic isolation of suspicious nodes
-   2. Creation of a "quarantine zone" for node verification
-   3. Notification of network administrators through secure channels
+*   Initial work focused on improving random number generation quality (uniform distribution, boundary handling) for more reliable simulation results.
 
-3. **System updates**:
-   1. Secure distribution of updates through the blockchain
-   2. Multi-stage verification of updates by key validators
-   3. Gradual implementation with the possibility of rollback when problems are detected
+## 12. Contributing
 
-## 12. Simulation Improvements
+*(Placeholder: Guidelines for contributing to the project)*
 
-1. **Random number distribution**:
-   1. Enhanced uniform distribution for node positions and movement patterns
-   2. Corrected boundary handling in random value generation
-   3. Statistically verified distribution for simulation parameters
-   4. Improved quality of simulation results through better randomization
+## 13. License
 
-## 13. Conclusion
+*(Placeholder: Specify the project license)*
 
-This algorithm ensures reliable operation of a hybrid network that combines a stationary 6G infrastructure and a dynamic MANET network through blockchain technology. The system guarantees security, adaptability to changes, efficient resource utilization, and fault tolerance, providing transparency and trust between all network participants.
+## 14. Conclusion
+
+This blockchain-integrated approach aims to provide a secure, transparent, and adaptive foundation for hybrid 6G-MANET networks. By leveraging distributed ledger technology for trust management, secure registration, and verifiable state information, the system seeks to address key challenges in dynamic, potentially adversarial mobile networking environments.
