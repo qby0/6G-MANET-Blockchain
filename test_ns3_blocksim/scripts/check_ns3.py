@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Скрипт для быстрой проверки работоспособности NS-3.
-Проверяет доступность и базовые возможности NS-3 без запуска полной симуляции.
+Script for quick NS-3 functionality check.
+Checks availability and basic NS-3 capabilities without running full simulation.
 """
 
 import argparse
@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Настройка логирования
+# Logging setup
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -22,22 +22,22 @@ logger = logging.getLogger("NS3Check")
 
 def check_ns3_availability(ns3_path):
     """
-    Проверяет доступность NS-3 в указанной директории.
+    Checks NS-3 availability in the specified directory.
 
     Args:
-        ns3_path (str): Путь к директории NS-3
+        ns3_path (str): Path to NS-3 directory
 
     Returns:
-        bool: True, если NS-3 доступен, иначе False
+        bool: True if NS-3 is available, False otherwise
     """
-    # Проверка наличия директории
+    # Check directory existence
     if not os.path.isdir(ns3_path):
         logger.error(
             "NS-3 directory does not exist: %s", ns3_path
         )
         return False
 
-    # Проверка наличия исполняемого файла ns3
+    # Check for ns3 executable
     ns3_executable = os.path.join(ns3_path, "ns3")
     if not os.path.exists(ns3_executable):
         logger.error(
@@ -45,20 +45,20 @@ def check_ns3_availability(ns3_path):
         )
         return False
 
-    # Проверка прав на выполнение
+    # Check execution permissions
     if not os.access(ns3_executable, os.X_OK):
         logger.warning(
             "NS-3 file exists but is not executable: %s", ns3_executable,
         )
         try:
             logger.info("Trying to add execution permissions...")
-            os.chmod(ns3_executable, 0o755)  # Добавляем права на выполнение
+            os.chmod(ns3_executable, 0o755)  # Add execution permissions
             logger.info("Execution permissions added successfully")
         except Exception as e:
             logger.error("Failed to add execution permissions: %s", e)
             return False
 
-    # Проверяем версию NS-3 из файла VERSION
+    # Check NS-3 version from VERSION file
     try:
         version_file = os.path.join(ns3_path, "VERSION")
         if os.path.exists(version_file):
@@ -68,14 +68,14 @@ def check_ns3_availability(ns3_path):
         else:
             logger.info("VERSION file not found, continuing checks...")
 
-        # Попытка вызова ns3 с минимальными параметрами
+        # Try calling ns3 with minimal parameters
         try:
-            # Пробуем запустить с минимальным опциями
+            # Try running with minimal options
             result = subprocess.run(
                 [ns3_executable, "--help"],
                 capture_output=True,
                 text=True,
-                timeout=10,  # Добавляем таймаут
+                timeout=10,  # Add timeout
             )
             if result.returncode == 0:
                 logger.info("NS-3 command runs successfully")
@@ -88,7 +88,7 @@ def check_ns3_availability(ns3_path):
                     "Stderr output: %s", result.stderr
                 )
 
-                # Пробуем другую команду
+                # Try alternative command
                 logger.info("Trying alternative check...")
                 result = subprocess.run(
                     [ns3_executable], capture_output=True, text=True, timeout=10
@@ -110,19 +110,19 @@ def check_ns3_availability(ns3_path):
 
 def check_ns3_modules(ns3_path):
     """
-    Проверяет доступные модули NS-3.
+    Checks available NS-3 modules.
 
     Args:
-        ns3_path (str): Путь к директории NS-3
+        ns3_path (str): Path to NS-3 directory
 
     Returns:
-        list: Список доступных модулей или пустой список в случае ошибки
+        list: List of available modules or empty list on error
     """
     try:
-        # Проверка модулей через анализ директорий
+        # Check modules through directory analysis
         src_dir = os.path.join(ns3_path, "src")
         if os.path.isdir(src_dir):
-            # Собираем модули из директорий исходного кода
+            # Collect modules from source code directories
             modules = []
             for item in os.listdir(src_dir):
                 if os.path.isdir(os.path.join(src_dir, item)) and not item.startswith(
@@ -135,13 +135,13 @@ def check_ns3_modules(ns3_path):
             )
             return modules
 
-        # Если директория src не найдена, попробуем запустить команду
+        # If src directory not found, try running command
         ns3_executable = os.path.join(ns3_path, "ns3")
         result = subprocess.run(
             [ns3_executable, "show", "modules"],
             capture_output=True,
             text=True,
-            check=False,  # Не выбрасываем исключение при ошибке
+            check=False,  # Don't throw exception on error
         )
 
         if result.returncode != 0:

@@ -1,2 +1,0 @@
-scripts/test_ns3.py:197: error: unmatched '}'  [syntax]
-Found 1 error in 1 file (errors prevented further checking)

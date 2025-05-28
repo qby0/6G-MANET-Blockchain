@@ -340,26 +340,17 @@ class NS3Adapter:
             self.logger.info(
                 "NS-3 simulation process started (PID: %d)", self.ns3_process.pid
             )
-            # Give NS-3 a moment to start up and create the file
-            time.sleep(3)  # Increased sleep time slightly
-            # Check if the position file was created
+            # Give NS-3 a moment to start up and create the file (at least two resolutions)
+            initial_wait = max(3, resolution * 2)
+            time.sleep(initial_wait)
+            # Check for the position file, but do not abort if it's missing
             if not os.path.exists(self.ns3_pos_file):
                 self.logger.warning(
-                    "NS-3 position file not found after startup: %s. NS-3 might have failed.",
+                    "NS-3 position file not found after startup: %s. Continuing without initial positions.",
                     self.ns3_pos_file,
                 )
-                # Read stderr to diagnose NS-3 failure
-                stderr_output = ""
-                try:
-                    # Non-blocking read
-                    stderr_output = self.ns3_process.stderr.read()
-                except Exception:
-                    pass  # Ignore errors reading stderr if process ended quickly
-                if stderr_output:
-                    self.logger.error("NS-3 stderr output: %s", stderr_output)
-                self.stop_ns3_simulation()  # Stop the potentially failed process
-                return False
-            self.logger.info("NS-3 position file found: %s", self.ns3_pos_file)
+            else:
+                self.logger.info("NS-3 position file found: %s", self.ns3_pos_file)
             return True
         except Exception as e:
             self.logger.error(

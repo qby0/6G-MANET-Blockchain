@@ -87,7 +87,7 @@ test_ns3_blocksim/external/netanim/
 # Results and temporary files
 results/*.json
 results/
-code_analysis_reports/
+test_ns3_blocksim/results/
 *.orig
 .*~
 
@@ -97,14 +97,6 @@ code_analysis_reports/
 # OS specific
 Thumbs.db
 desktop.ini
-
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-.hypothesis/
 
 # Fix script outputs
 fix_*.py

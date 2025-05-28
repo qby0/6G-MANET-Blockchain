@@ -22,7 +22,7 @@ logger = logging.getLogger("BlockSimAdapter")
 
 
 class BlockSimAdapter:
-    """Класс для взаимодействия с BlockSim"""
+    """Class for interacting with BlockSim"""
 
     def __init__(self, config_path: Optional[Any] = None):
         """
@@ -136,24 +136,24 @@ class BlockSimAdapter:
 
     def update_node_status(self, node_id: str, is_active: bool) -> bool:
         """
-        Обновляет статус активности узла.
+        Updates node activity status.
 
         Args:
-            node_id (str): Идентификатор узла
-            is_active (bool): Активен ли узел
+            node_id (str): Node identifier
+            is_active (bool): Whether node is active
 
         Returns:
-            bool: True, если статус успешно обновлен, иначе False
+            bool: True if status successfully updated, False otherwise
         """
         if node_id not in self.nodes:
-            logger.error("Узел %s не найден", node_id)
+            logger.error("Node %s not found", node_id)
             return False
 
         self.nodes[node_id]["is_active"] = is_active
 
-        status_text = "активен" if is_active else "неактивен"
+        status_text = "active" if is_active else "inactive"
         logger.info(
-            "Статус узла %s обновлен: %s", node_id, status_text
+            "Node %s status updated: %s", node_id, status_text
         )
         return True
 
@@ -381,32 +381,32 @@ class BlockSimAdapter:
 
     def save_state(self, filepath: str) -> bool:
         """
-        Сохраняет текущее состояние в файл JSON.
+        Saves current state to JSON file.
 
         Args:
-            filepath (str): Путь для сохранения
+            filepath (str): Path to save to
 
         Returns:
-            bool: True, если состояние успешно сохранено, иначе False
+            bool: True if state successfully saved, False otherwise
         """
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_detailed_state(), f, indent=2)
-            logger.info("Состояние сохранено в %s", filepath)
+            logger.info("State saved to %s", filepath)
             return True
         except Exception as e:
-            logger.error("Ошибка при сохранении состояния: %s", e)
+            logger.error("Error saving state: %s", e)
             return False
 
     def load_state(self, filepath: str) -> bool:
         """
-        Загружает состояние из файла JSON.
+        Loads state from JSON file.
 
         Args:
-            filepath (str): Путь к файлу состояния
+            filepath (str): Path to state file
 
         Returns:
-            bool: True, если состояние успешно загружено, иначе False
+            bool: True if state successfully loaded, False otherwise
         """
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -418,10 +418,10 @@ class BlockSimAdapter:
             self.blocks = state.get("blocks", [])
             self.transactions = state.get("transactions", [])
 
-            logger.info("Состояние загружено из %s", filepath)
+            logger.info("State loaded from %s", filepath)
             return True
         except Exception as e:
-            logger.error("Ошибка при загрузке состояния: %s", e)
+            logger.error("Error loading state: %s", e)
             return False
 
 

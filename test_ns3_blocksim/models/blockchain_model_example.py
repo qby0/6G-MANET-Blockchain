@@ -254,7 +254,7 @@ class Blockchain:
         Преобразование блокчейна в словарь.
 
         Returns:
-            Dict[str, Any]: Blockchain as dictionary / Блокчейн в виде словаря
+            Dict[str, Any]: Blockchain as dictionary
         """
         return {
             "chain": [block.to_dict() for block in self.chain],
@@ -269,10 +269,10 @@ class Blockchain:
         Сохранение состояния блокчейна в файл.
 
         Args:
-            filepath (str): Path to save the blockchain / Путь для сохранения блокчейна
+            filepath (str): Path to save the blockchain
 
         Returns:
-            bool: True if successful, False otherwise / True в случае успеха, иначе False
+            bool: True if successful, False otherwise
         """
         try:
             directory = os.path.dirname(filepath)
@@ -295,14 +295,14 @@ class Blockchain:
         Загрузка состояния блокчейна из файла.
 
         Args:
-            filepath (str): Path to load the blockchain from / Путь для загрузки блокчейна
+            filepath (str): Path to load the blockchain from
 
         Returns:
-            Blockchain: Loaded blockchain / Загруженный блокчейн
+            Blockchain: Loaded blockchain
 
         Raises:
-            FileNotFoundError: If file does not exist / Если файл не существует
-            json.JSONDecodeError: If file is not valid JSON / Если файл не является корректным JSON
+            FileNotFoundError: If file does not exist
+            json.JSONDecodeError: If file is not valid JSON
         """
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -311,7 +311,7 @@ class Blockchain:
         blockchain.pending_transactions = data.get("pending_transactions", [])
         blockchain.nodes = data.get("nodes", {})
 
-        # Clear existing chain and rebuild it / Очистка существующей цепи и ее восстановление
+        # Clear existing chain and rebuild it
         blockchain.chain = []
         for block_data in data.get("chain", []):
             block = Block(

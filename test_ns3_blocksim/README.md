@@ -1,108 +1,165 @@
-# Integration of NS-3 and BlockSim for Blockchain System Simulation in 6G/MANET Networks
-## Overview
-This project demonstrates the integration of NS-3 (Network Simulator 3) and BlockSim for simulating a blockchain system in a hybrid network infrastructure of 6G and MANET.
+# Cross-Zone Blockchain Simulation for 6G-MANET Networks
+
+Cross-zone blockchain simulation with consensus-based validator management for hybrid 6G-MANET networks, featuring the ValidatorLeave/ManetNodeEnter algorithm with mobility support and PBFT consensus.
+
+## Key Features
+
+### Cross-Zone Architecture
+- **Three-Zone Network**: 5G, MANET, and Bridge zones with automatic transitions
+- **Dynamic Mobility**: All nodes mobile except base station
+- **RSSI-Based Detection**: Automatic zone transitions based on signal strength
+- **Cross-Zone Validation**: Cryptographic transaction validation between zones
+
+### Consensus-Based Validator Management
+- **ValidatorLeave/ManetNodeEnter Algorithm**: Automatic validator rotation with mobility
+- **PBFT Consensus**: Byzantine fault-tolerant voting for validator changes
+- **Performance-Based Selection**: Scoring system for candidate validators
+- **Battery Level Monitoring**: Automatic rotation on low battery
+- **Dual-Radio Gateway Preference**: Bridge nodes preferred as validators
+
+### Network Simulation
+- **NS-3 Integration**: Native simulation with C++ performance
+- **AODV Routing**: Real ad-hoc routing for MANET zone
+- **NetAnim Visualization**: Real-time network visualization with zone coloring
+- **BlockSim Integration**: Blockchain consensus and transaction processing
+
+## Quick Start
+
+### Installation
+```bash
+# Install system dependencies (Ubuntu/Debian)
+sudo apt install qt5-default python3-dev cmake ninja-build ccache
+
+# Install Python dependencies
+pip3 install -r requirements.txt
+
+# Configure and build NS-3
+cd external/ns-3
+./ns3 configure --enable-examples --enable-tests --enable-python-bindings
+./ns3 build
+```
+
+### Run Simulations
+
+#### Main Simulation Controller (Recommended)
+```bash
+# Enhanced cross-zone with consensus validators
+python3 main_sim.py enhanced
+
+# Custom parameters
+python3 main_sim.py enhanced --time 300 --min-validators 4 --max-validators 8
+
+# List all simulation types
+python3 main_sim.py --list
+```
+
+#### Shell Script Interface
+```bash
+# Enhanced simulation with consensus validators
+./run_advanced_cross_zone.sh
+
+# Quick test mode
+./run_advanced_cross_zone.sh enhanced quick --verbose
+
+# Large network demonstration
+./run_advanced_cross_zone.sh enhanced large
+```
+
+### View Results
+```bash
+# Open NetAnim for visualization
+cd external/ns-3/netanim
+./NetAnim
+# Load generated XML file: advanced-cross-zone-blockchain-fixed.xml
+```
+
+## Simulation Types
+
+| Type | Description | Features |
+|------|-------------|----------|
+| **enhanced** | Enhanced cross-zone with consensus validators | Full ValidatorLeave/ManetNodeEnter + PBFT |
+| **cross-zone** | Basic cross-zone without consensus | Zone transitions + basic validation |
+| **consensus** | Standalone consensus validator system | Pure consensus algorithm testing |
+
+## Simulation Modes
+
+| Mode | Duration | Nodes | Purpose |
+|------|----------|-------|---------|
+| **quick** | 60s | 9 (4M+3G+2B) | Quick testing |
+| **standard** | 180s | 17 (8M+6G+3B) | Standard demo |
+| **large** | 300s | 27 (12M+10G+5B) | Scalability test |
+
+## Consensus Validator Features
+
+### ValidatorLeave/ManetNodeEnter Algorithm
+```
+1. RSSI threshold detection (< -80dBm triggers leave)
+2. PBFT consensus voting for validator changes
+3. Battery level monitoring (< 20% triggers rotation)
+4. Mobility-aware candidate promotion
+5. Automatic shortage handling
+```
+
+### Zone-Based Distribution
+- **5G Zone** (0-100m): Strong signal validators
+- **Bridge Zone** (100-150m): Dual-radio gateway validators
+- **MANET Zone** (150-400m): Ad-hoc connectivity only
+
+## Test Results
+
+All enhanced simulations passing with 100% success rate:
+
+| Test Type | Nodes | Duration | Consensus Features | Status |
+|-----------|-------|----------|-------------------|---------|
+| Enhanced Quick | 9 | 60s | 2-4 validators | ✅ PASS |
+| Enhanced Standard | 17 | 180s | 3-7 validators | ✅ PASS |
+| Enhanced Large | 27 | 300s | 4-10 validators | ✅ PASS |
+
+## Configuration Options
+
+### Network Parameters
+```bash
+--manet-nodes N      # MANET zone nodes (default: 8)
+--5g-nodes N         # 5G zone nodes (default: 6)
+--bridge-nodes N     # Bridge validators (default: 3)
+--time T             # Simulation time (default: 180s)
+```
+
+### Consensus Parameters
+```bash
+--min-validators N   # Minimum validators (default: 3)
+--max-validators N   # Maximum validators (default: 7)
+--disable-consensus  # Disable consensus management
+```
 
 ## Project Structure
-- `config/` - configuration files for various simulation scenarios
-- `models/` - models for BlockSim and additional classes for NS-3
-- `scripts/` - scripts for running different simulations
-- `visualization/` - tools for visualizing simulation results
-- `results/` - directory for saving simulation results
 
-## Requirements
-- NS-3 (version 3.36 or higher recommended)
-- Python 3.8+
-- Dependencies from requirements.txt
-- Qt5 (for NetAnim)
-- ccache (for faster builds)
-
-## Quick Installation and Build
-
-1. Install system dependencies:
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install ccache qt5-default python3-dev cmake ninja-build
-   
-   # Fedora
-   sudo dnf install ccache qt5-devel python3-devel cmake ninja-build
-   ```
-
-2. Install Python dependencies:
-   ```bash
-   python3 -m pip install -r requirements.txt
-   ```
-
-3. Configure and build NS-3 with optimizations:
-   ```bash
-   cd external/ns-3
-   
-   # Configure ccache for faster rebuilds
-   export CCACHE_DIR=$(pwd)/.ccache
-   export CCACHE_MAXSIZE=50G
-   
-   # Configuration with optimizations
-   ./ns3 configure --enable-examples --enable-tests \
-                  --enable-python-bindings \
-                  --enable-modules='netanim' \
-                  --build-profile=optimized \
-                  --enable-ccache \
-                  --enable-ninja
-   
-   # Parallel build (using all available cores)
-   ./ns3 build -j$(nproc)
-   ```
-
-4. Set environment variables:
-   ```bash
-   export NS3_DIR=$(pwd)
-   cd ../..
-   ```
-
-## Running Simulation with Visualization
-1. Basic simulation:
-   ```bash
-   python scripts/run_basic_simulation.py
-   ```
-
-2. Launch NetAnim for visualization:
-   ```bash
-   cd $NS3_DIR/netanim
-   ./NetAnim
-   ```
-   Then open the generated XML file from the results directory.
-
-## Simulation Scenarios
-1. **baseline_scenario** - basic simulation with fixed nodes
-2. **mobility_scenario** - scenario with mobile nodes using the RandomWalk model
-3. **urban_scenario** - urban environment scenario with realistic node movement
-
-## Visualizing Results
-```bash
-python visualization/plot_results.py --input results/simulation_output.json
+```
+test_ns3_blocksim/
+├── main_sim.py                     # Main simulation controller
+├── run_advanced_cross_zone.sh      # Enhanced shell script
+├── scripts/                        # Simulation execution scripts
+├── models/                         # BlockSim models and NS-3 extensions
+│   └── blockchain/
+│       ├── consensus_validator_manager.py     # Consensus validator system
+│       ├── blocksim_bridge.py              # BlockSim integration
+│       └── transaction_handler.py          # Cross-zone transactions
+├── config/                         # Configuration files
+├── results/                        # Simulation outputs and logs
+├── external/ns-3/                 # NS-3 simulator installation
+└── CONSENSUS_VALIDATOR_DOCUMENTATION.md  # Detailed documentation
 ```
 
-## Examples
-The `examples/` directory contains detailed examples of using the system for different scenarios.
+## Documentation
 
-## Performance Tips
-- Use ccache to speed up repeated builds
-- Only include necessary modules when configuring NS-3
-- Use optimized build profile
-- Use debug profile only when necessary during development
-- Use ninja instead of make for faster builds
+- `CONSENSUS_VALIDATOR_DOCUMENTATION.md` - Complete consensus system documentation
+- `TEST_SUMMARY.md` - Test results and performance metrics
+- `CROSS_ZONE_TEST_RESULTS.md` - Detailed cross-zone test results
 
-## Integration Architecture
-The integration of NS-3 and BlockSim is implemented through an intermediate interface that synchronizes events between the two simulators and ensures data consistency.
+## Status
 
-## Random Number Distribution Improvements
-The simulation uses improved random number generation to ensure proper distribution of values for node positions, movement and transaction parameters. A fix for the random number generation has been implemented to:
+**Ready for demonstration and further development!** 
 
-- Ensure correct uniform distribution across the specified range
-- Avoid potential biases in the simulation results
-- Properly handle min/max boundaries in random value generation
-- Improve statistical validity of simulation outcomes
+Enhanced Cross-Zone Blockchain with Consensus Validators represents a successful implementation of next-generation blockchain architecture for mobile networks with 100% pass rate across all test scenarios.
 
-To verify the random number distribution, run:
-```bash
-python3 test_random_improved.py
-```
+For detailed consensus validator documentation, see [`CONSENSUS_VALIDATOR_DOCUMENTATION.md`](CONSENSUS_VALIDATOR_DOCUMENTATION.md).

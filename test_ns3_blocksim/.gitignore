@@ -19,8 +19,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.pytest_cache/
-.mypy_cache/
 
 # Virtual Environment
 code_quality_venv/
@@ -53,20 +51,18 @@ ns3_test.log
 *.sqlite
 *.db
 
-# Coverage and test reports
-.coverage
-htmlcov/
-coverage.xml
-
 # Results and data
 results/*
 !results/.gitkeep
 
-# Code analysis reports
-code_analysis_reports/
+# IPC temporary files
+test_ipc/
 
 # Fix scripts and utility scripts
 fix_*.py
 
 # Pre-commit hook files
 .pre-commit-config.yaml.bak
+test_ns3_blocksim/external/BlockSim/
+test_ns3_blocksim/external/netanim/
+test_ns3_blocksim/netanim/

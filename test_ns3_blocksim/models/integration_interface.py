@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Интерфейс для интеграции между NS-3 и BlockSim.
-Обеспечивает передачу данных и синхронизацию между симуляторами.
+Interface for integration between NS-3 and BlockSim.
+Provides data exchange and synchronization between simulators.
 """
 
 import json
@@ -12,7 +12,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-# Настройка логирования
+# Logging setup
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -20,29 +20,29 @@ logger = logging.getLogger("IntegrationInterface")
 
 
 class IntegrationInterface:
-    """Класс для интеграции NS-3 и BlockSim"""
+    """Class for NS-3 and BlockSim integration"""
 
     def __init__(self, config_path: Optional[Any] = None):
         """
-        Инициализирует интерфейс интеграции.
+        Initializes integration interface.
 
         Args:
-            config_path (str, optional): Путь к файлу конфигурации. По умолчанию None.
+            config_path (str, optional): Path to configuration file. Defaults to None.
         """
-        self.nodes: Dict[str, Any] = {}  # Словарь для хранения информации об узлах
+        self.nodes: Dict[str, Any] = {}  # Dictionary for storing node information
         self.links: Dict[
             str, Any
-        ] = {}  # Словарь для хранения информации о связях между узлами
-        self.transactions: List[Any] = []  # Список транзакций
-        self.simulation_time = 0.0  # Текущее время симуляции
-        self.config: Dict[str, Any] = {}  # Конфигурация симуляции
+        ] = {}  # Dictionary for storing link information between nodes
+        self.transactions: List[Any] = []  # List of transactions
+        self.simulation_time = 0.0  # Current simulation time
+        self.config: Dict[str, Any] = {}  # Simulation configuration
 
-        # Загружаем конфигурацию, если указана
+        # Load configuration if specified
         if config_path and os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
                 logger.info(
-                    "Конфигурация загружена из %s", config_path,
+                    "Configuration loaded from %s", config_path,
                 )
 
     def register_node(
@@ -53,19 +53,19 @@ class IntegrationInterface:
         capabilities: Dict[str, Any],
     ) -> bool:
         """
-        Регистрирует новый узел в системе.
+        Registers a new node in the system.
 
         Args:
-            node_id (str): Уникальный идентификатор узла
-            position (Tuple[float, float, float]): Координаты узла (x, y, z)
-            node_type (str): Тип узла (base_station, validator, regular)
-            capabilities (Dict[str, Any]): Параметры возможностей узла
+            node_id (str): Unique node identifier
+            position (Tuple[float, float, float]): Node coordinates (x, y, z)
+            node_type (str): Node type (base_station, validator, regular)
+            capabilities (Dict[str, Any]): Node capabilities parameters
 
         Returns:
-            bool: True, если узел успешно зарегистрирован, иначе False
+            bool: True if node successfully registered, False otherwise
         """
         if node_id in self.nodes:
-            logger.warning("Узел %s уже зарегистрирован", node_id)
+            logger.warning("Node %s already registered", node_id)
             return False
 
         self.nodes[node_id] = {
@@ -78,31 +78,31 @@ class IntegrationInterface:
             "registered_time": self.simulation_time,
         }
 
-        logger.info("Узел %s успешно зарегистрирован", node_id)
+        logger.info("Node %s successfully registered", node_id)
         return True
 
     def update_node_position(
         self, node_id: str, position: Tuple[float, float, float]
     ) -> bool:
         """
-        Обновляет позицию узла.
+        Updates node position.
 
         Args:
-            node_id (str): Идентификатор узла
-            position (Tuple[float, float, float]): Новые координаты (x, y, z)
+            node_id (str): Node identifier
+            position (Tuple[float, float, float]): New coordinates (x, y, z)
 
         Returns:
-            bool: True, если позиция успешно обновлена, иначе False
+            bool: True if position successfully updated, False otherwise
         """
         if node_id not in self.nodes:
-            logger.error("Узел %s не найден", node_id)
+            logger.error("Node %s not found", node_id)
             return False
 
         old_position = self.nodes[node_id]["position"]
         self.nodes[node_id]["position"] = position
 
         logger.debug(
-            "Узел %s переместился из %s в %s", (node_id, old_position, old_position),
+            "Node %s moved from %s to %s", (node_id, old_position, old_position),
         )
         return True
 
@@ -110,34 +110,34 @@ class IntegrationInterface:
         self, node1_id: str, node2_id: str, quality: float, bandwidth: float
     ) -> bool:
         """
-        Регистрирует соединение между двумя узлами.
+        Registers connection between two nodes.
 
         Args:
-            node1_id (str): Идентификатор первого узла
-            node2_id (str): Идентификатор второго узла
-            quality (float): Качество соединения (0.0-1.0)
-            bandwidth (float): Пропускная способность (Mbps)
+            node1_id (str): First node identifier
+            node2_id (str): Second node identifier
+            quality (float): Connection quality (0.0-1.0)
+            bandwidth (float): Connection bandwidth (Mbps)
 
         Returns:
-            bool: True, если соединение успешно зарегистрировано, иначе False
+            bool: True if connection successfully registered, False otherwise
         """
         if node1_id not in self.nodes or node2_id not in self.nodes:
             logger.error(
-                "Один или оба узла не найдены: %s, %s", (node1_id, node2_id),
+                "One or both nodes not found: %s, %s", (node1_id, node2_id),
             )
             return False
 
         connection_id = f"{min(node1_id, node2_id)}_{max(node1_id, node2_id)}"
 
         if connection_id in self.links:
-            # Обновляем существующее соединение
+            # Update existing connection
             self.links[connection_id]["quality"] = quality
             self.links[connection_id]["bandwidth"] = bandwidth
             logger.debug(
-                "Соединение %s обновлено", connection_id
+                "Connection %s updated", connection_id
             )
         else:
-            # Создаем новое соединение
+            # Create new connection
             self.links[connection_id] = {
                 "nodes": [node1_id, node2_id],
                 "quality": quality,
@@ -146,12 +146,12 @@ class IntegrationInterface:
                 "active": True,
             }
 
-            # Обновляем список соединений для обоих узлов
+            # Update connection lists for both nodes
             self.nodes[node1_id]["connections"].append(node2_id)
             self.nodes[node2_id]["connections"].append(node1_id)
 
             logger.info(
-                "Соединение между узлами %s и %s установлено", node1_id, node2_id
+                "Connection between nodes %s and %s established", node1_id, node2_id
             )
 
         return True
@@ -160,41 +160,41 @@ class IntegrationInterface:
         self, source_id: str, target_id: str, transaction_data: Dict[str, Any]
     ) -> str:
         """
-        Отправляет транзакцию от одного узла к другому.
+        Sends transaction from one node to another.
 
         Args:
-            source_id (str): Идентификатор узла-отправителя
-            target_id (str): Идентификатор узла-получателя
-            transaction_data (Dict[str, Any]): Данные транзакции
+            source_id (str): Source node identifier
+            target_id (str): Target node identifier
+            transaction_data (Dict[str, Any]): Transaction data
 
         Returns:
-            str: Идентификатор транзакции или пустая строка в случае ошибки
+            str: Transaction identifier or empty string in case of error
         """
         if source_id not in self.nodes:
             logger.error(
-                "Узел-отправитель %s не найден", source_id
+                "Source node %s not found", source_id
             )
             return ""
 
         if target_id not in self.nodes:
             logger.error(
-                "Узел-получатель %s не найден", target_id
+                "Target node %s not found", target_id
             )
             return ""
 
-        # Проверяем, есть ли прямое соединение или путь между узлами
+        # Check if direct connection or path exists between nodes
         if not self._check_path_exists(source_id, target_id):
             logger.error(
-                "Нет доступного пути между узлами %s и %s", (source_id, target_id),
+                "No available path between nodes %s and %s", (source_id, target_id),
             )
             return ""
 
-        # Генерируем уникальный идентификатор транзакции
+        # Generate unique transaction identifier
         import uuid
 
         tx_id = f"tx_{uuid.uuid4().hex[:8]}"
 
-        # Создаем транзакцию
+        # Create transaction
         transaction = {
             "id": tx_id,
             "source": source_id,
@@ -206,46 +206,46 @@ class IntegrationInterface:
         }
 
         self.transactions.append(transaction)
-        logger.info("Транзакция %s создана и отправлена", tx_id)
+        logger.info("Transaction %s created and sent", tx_id)
 
         return tx_id
 
     def process_pending_transactions(self) -> int:
         """
-        Обрабатывает ожидающие транзакции.
+        Processes pending transactions.
 
         Returns:
-            int: Количество обработанных транзакций
+            int: Number of processed transactions
         """
         count = 0
         for tx in self.transactions:
             if tx["status"] == "pending":
-                # Симулируем прохождение транзакции через сеть
-                # В реальной интеграции здесь будет связь с BlockSim
+                # Simulate transaction passing through network
+                # In real integration, this would be linked to BlockSim
                 tx["status"] = "processed"
                 count += 1
 
-        logger.info("Обработано %s транзакций", count)
+        logger.info("Processed %s transactions", count)
         return count
 
     def advance_time(self, time_delta: float) -> None:
         """
-        Продвигает время симуляции вперед.
+        Advances simulation time forward.
 
         Args:
-            time_delta (float): Величина времени для продвижения (в секундах)
+            time_delta (float): Time increment for advancing (in seconds)
         """
         self.simulation_time += time_delta
         logger.debug(
-            "Время симуляции продвинуто до %s", self.simulation_time,
+            "Simulation time advanced to %s", self.simulation_time,
         )
 
     def get_network_state(self) -> Dict[str, Any]:
         """
-        Возвращает текущее состояние сети.
+        Returns current network state.
 
         Returns:
-            Dict[str, Any]: Словарь с состоянием сети
+            Dict[str, Any]: Dictionary with network state
         """
         return {
             "simulation_time": self.simulation_time,
@@ -256,130 +256,130 @@ class IntegrationInterface:
 
     def save_state(self, filepath: str) -> bool:
         """
-        Сохраняет текущее состояние интерфейса в файл JSON.
+        Saves current interface state to JSON file.
 
         Args:
-            filepath (str): Путь для сохранения состояния
+            filepath (str): Path to save state
 
         Returns:
-            bool: True, если состояние успешно сохранено, иначе False
+            bool: True if state successfully saved, False otherwise
         """
         try:
-            # Проверяем, существует ли директория, и создаем её, если нет
+            # Check if directory exists and create if not
             directory = os.path.dirname(filepath)
             if directory and not os.path.exists(directory):
                 try:
                     os.makedirs(directory, exist_ok=True)
                     logger.info(
-                        "Создана директория %s", directory
+                        "Directory created %s", directory
                     )
                 except PermissionError:
                     logger.error(
-                        f"Ошибка прав доступа: невозможно создать директорию {directory}"
+                        f"Permission error: cannot create directory {directory}"
                     )
                     logger.error(
-                        "Пожалуйста, проверьте права доступа к файловой системе"
+                        "Please check filesystem access permissions"
                     )
                     return False
                 except Exception as e:
                     logger.error(
-                        "Ошибка при создании директории %s: %s", (directory, e),
+                        "Error creating directory %s: %s", (directory, e),
                     )
                     return False
 
-            # Проверяем права на запись, если файл уже существует
+            # Check write permissions if file already exists
             if os.path.exists(filepath):
                 if not os.access(filepath, os.W_OK):
                     logger.error(
-                        f"Ошибка прав доступа: отсутствуют права на запись файла {filepath}"
+                        f"Permission error: no write access to file {filepath}"
                     )
-                    logger.error("Пожалуйста, проверьте права доступа к файлу")
+                    logger.error("Please check file access permissions")
                     return False
 
-            # Пытаемся открыть файл и записать данные
+            # Try to open file and write data
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_network_state(), f, indent=2)
             logger.info(
-                "Состояние симуляции сохранено в %s", filepath
+                "Simulation state saved to %s", filepath
             )
             return True
         except PermissionError:
             logger.error(
-                "Ошибка прав доступа: невозможно записать в файл %s", filepath,
+                "Permission error: cannot write to file %s", filepath,
             )
-            logger.error("Пожалуйста, проверьте права доступа к файлу и директории")
+            logger.error("Please check file and directory access permissions")
             return False
         except Exception as e:
-            logger.error("Ошибка при сохранении состояния: %s", e)
+            logger.error("Error saving state: %s", e)
             return False
 
     def load_state(self, filepath: str) -> bool:
         """
-        Загружает состояние интерфейса из файла JSON.
+        Loads interface state from JSON file.
 
         Args:
-            filepath (str): Путь к файлу состояния
+            filepath (str): Path to state file
 
         Returns:
-            bool: True, если состояние успешно загружено, иначе False
+            bool: True if state successfully loaded, False otherwise
         """
         try:
-            # Проверяем существование файла
+            # Check file existence
             if not os.path.exists(filepath):
                 logger.error(
-                    "Файл состояния %s не существует", filepath
+                    "State file %s does not exist", filepath
                 )
                 return False
 
-            # Проверяем права на чтение
+            # Check read permissions
             if not os.access(filepath, os.R_OK):
                 logger.error(
-                    f"Ошибка прав доступа: отсутствуют права на чтение файла {filepath}"
+                    f"Permission error: no read access to file {filepath}"
                 )
-                logger.error("Пожалуйста, проверьте права доступа к файлу")
+                logger.error("Please check file access permissions")
                 return False
 
-            # Пытаемся открыть файл и прочитать данные
+            # Try to open file and read data
             with open(filepath, "r", encoding="utf-8") as f:
                 state = json.load(f)
 
-            # Загружаем состояние
+            # Load state
             self.nodes = state.get("nodes", {})
             self.links = state.get("links", {})
             self.transactions = state.get("transactions", [])
             self.simulation_time = state.get("time", 0.0)
 
             logger.info(
-                "Состояние симуляции загружено из %s", filepath
+                "Simulation state loaded from %s", filepath
             )
             return True
         except PermissionError:
             logger.error(
-                "Ошибка прав доступа: невозможно прочитать файл %s", filepath,
+                "Permission error: cannot read file %s", filepath,
             )
-            logger.error("Пожалуйста, проверьте права доступа к файлу")
+            logger.error("Please check file access permissions")
             return False
         except json.JSONDecodeError:
             logger.error(
-                "Ошибка декодирования JSON в файле %s", filepath
+                "JSON decoding error in file %s", filepath
             )
             return False
         except Exception as e:
-            logger.error("Ошибка при загрузке состояния: %s", e)
+            logger.error("Error loading state: %s", e)
             return False
 
     def _check_path_exists(self, source_id: str, target_id: str) -> bool:
         """
-        Проверяет наличие пути между двумя узлами.
+        Checks if path exists between two nodes.
 
         Args:
-            source_id (str): Идентификатор узла-отправителя
-            target_id (str): Идентификатор узла-получателя
+            source_id (str): Source node identifier
+            target_id (str): Target node identifier
 
         Returns:
-            bool: True, если путь существует, иначе False
+            bool: True if path exists, False otherwise
         """
-        # В простейшем случае используем поиск в ширину
+        # Simple case using breadth-first search
         visited = set()
         queue = [source_id]
 
@@ -403,16 +403,16 @@ class IntegrationInterface:
 
     def _find_shortest_path(self, source_id: str, target_id: str) -> List[str]:
         """
-        Находит кратчайший путь между двумя узлами.
+        Finds shortest path between two nodes.
 
         Args:
-            source_id (str): Идентификатор узла-отправителя
-            target_id (str): Идентификатор узла-получателя
+            source_id (str): Source node identifier
+            target_id (str): Target node identifier
 
         Returns:
-            List[str]: Список идентификаторов узлов, составляющих путь
+            List[str]: List of node identifiers forming the path
         """
-        # Реализуем простой алгоритм поиска в ширину
+        # Implement simple breadth-first search algorithm
         visited = set()
         queue = [(source_id, [source_id])]
 
@@ -433,14 +433,14 @@ class IntegrationInterface:
                         new_path = path + [connected_node]
                         queue.append((connected_node, new_path))
 
-        return []  # Путь не найден
+        return []  # Path not found
 
 
 if __name__ == "__main__":
-    # Пример использования
+    # Example usage
     interface = IntegrationInterface()
 
-    # Регистрируем базовую станцию
+    # Register base station
     interface.register_node(
         "base_station_1",
         (0.0, 0.0, 10.0),
@@ -448,7 +448,7 @@ if __name__ == "__main__":
         {"computational_power": 100, "storage": 1000, "battery": None},
     )
 
-    # Регистрируем два мобильных узла
+    # Register two mobile nodes
     interface.register_node(
         "node_1",
         (10.0, 10.0, 1.5),
@@ -463,20 +463,20 @@ if __name__ == "__main__":
         {"computational_power": 20, "storage": 100, "battery": 0.8},
     )
 
-    # Устанавливаем соединения
+    # Establish connections
     interface.register_connection("base_station_1", "node_1", 0.9, 100.0)
     interface.register_connection("node_1", "node_2", 0.7, 50.0)
 
-    # Отправляем транзакцию
+    # Send transaction
     tx_id = interface.send_transaction(
         "node_1", "node_2", {"type": "data_transfer", "size": 1024, "priority": "high"}
     )
 
-    # Продвигаем время и обрабатываем транзакции
+    # Advance time and process transactions
     interface.advance_time(1.0)
     interface.process_pending_transactions()
 
-    # Сохраняем состояние
+    # Save state
     interface.save_state(os.path.join(tempfile.gettempdir(), "simulation_state.json"))
 
-    print("Пример выполнен успешно.")
+    print("Example completed successfully.")

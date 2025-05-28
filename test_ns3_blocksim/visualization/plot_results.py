@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Скрипт для визуализации результатов интегрированной симуляции NS-3 и BlockSim.
+Script for visualizing integrated NS-3 and BlockSim simulation results.
 """
 
 import os
@@ -16,29 +16,29 @@ from matplotlib.patches import Circle
 import networkx as nx
 from typing import Dict, List, Any, Optional, Tuple
 
-# Добавляем корневой каталог проекта в путь для импорта
+# Add project root directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def parse_arguments():
-    """Парсинг аргументов командной строки."""
-    parser = argparse.ArgumentParser(description='Визуализация результатов симуляции')
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Visualize simulation results')
     
     parser.add_argument('--input', type=str, required=True,
-                        help='Путь к файлу с результатами симуляции')
+                        help='Path to simulation results file')
     parser.add_argument('--output-dir', type=str, default='../results',
-                        help='Директория для сохранения визуализаций')
+                        help='Directory to save visualizations')
     parser.add_argument('--format', type=str, default='png',
-                        help='Формат файлов изображений (png, pdf, svg)')
+                        help='Image file format (png, pdf, svg)')
     
     return parser.parse_args()
 
 def load_simulation_data(filepath):
-    """Загрузка данных симуляции из файла JSON."""
+    """Load simulation data from JSON file."""
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Ошибка при загрузке файла {filepath}: {e}")
+        print(f"Error loading file {filepath}: {e}")
         sys.exit(1)
 
 def visualize_network_topology(data, output_path):
