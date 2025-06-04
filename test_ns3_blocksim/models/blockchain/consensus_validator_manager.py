@@ -260,6 +260,14 @@ class ConsensusValidatorManager:
             
             node.last_activity = time.time()
             
+            # ИСПРАВЛЕНО: Проверяем зону - валидаторы не должны быть в MANET
+            if (node_id in self.active_validators and 
+                zone is not None and 
+                zone == ZoneType.MANET):
+                self.logger.info(f"Validator {node_id} moved to MANET zone, initiating leave")
+                self._initiate_validator_leave(node_id, "entered_manet_zone")
+                return
+            
             # Check if validator should leave due to weak signal
             if (node_id in self.active_validators and 
                 rssi_6g is not None and 
@@ -292,6 +300,12 @@ class ConsensusValidatorManager:
             return
         
         candidate = self.candidate_nodes[candidate_id]
+        
+        # ИСПРАВЛЕНО: Дополнительная проверка зоны при автопромоушене
+        # MANET узлы не должны становиться валидаторами даже при нехватке валидаторов
+        if candidate.zone not in [ZoneType.BRIDGE, ZoneType.FIVE_G]:
+            self.logger.debug(f"Candidate {candidate_id} in {candidate.zone.value} zone not eligible for auto-promotion")
+            return
         
         # Create join transaction
         join_tx = self._create_join_transaction(candidate)
@@ -402,143 +416,59 @@ class ConsensusValidatorManager:
         self._broadcast_consensus_request(consensus_round)
     
     def _broadcast_consensus_request(self, consensus_round: ConsensusRound):
-        """Broadcast consensus request to all active validators"""
+        """Broadcast consensus request to all active validators (legacy method)"""
+        # Используем новый асинхронный метод для избежания блокировок
+        self._broadcast_consensus_request_async(consensus_round)
+    
+    def _broadcast_consensus_request_async(self, consensus_round: ConsensusRound):
+        """Broadcast consensus request asynchronously to avoid blocking"""
         # Include base station in voting
         all_validators = list(self.active_validators.keys()) + [self.base_station_id]
         
+        # Process votes quickly without blocking
         for validator_id in all_validators:
-            self._request_validator_vote(validator_id, consensus_round)
-    
-    def _request_validator_vote(self, validator_id: int, consensus_round: ConsensusRound):
-        """Request vote from specific validator"""
-        # Simulate validator decision-making
-        vote = self._simulate_validator_vote(validator_id, consensus_round.transaction)
-        
-        # Record vote
-        with self.consensus_lock:
-            if consensus_round.phase == "prepare":
-                consensus_round.prepare_votes[validator_id] = vote
-            elif consensus_round.phase == "commit":
-                consensus_round.commit_votes[validator_id] = vote
-        
-        self.logger.debug(f"Validator {validator_id} voted {vote} for {consensus_round.transaction.tx_id}")
-    
-    def _simulate_validator_vote(self, validator_id: int, transaction: ValidatorTransaction) -> bool:
-        """Simulate validator voting decision"""
-        # Base station always votes according to policy
-        if validator_id == self.base_station_id:
-            return self._base_station_vote(transaction)
-        
-        # Regular validators vote based on criteria
-        if transaction.tx_type == TransactionType.LEAVE_TX:
-            # Usually approve leave requests (validators can decide to leave)
-            return True
-        
-        elif transaction.tx_type == TransactionType.JOIN_TX:
-            # Check if we need more validators
-            current_count = len(self.active_validators)
-            if current_count < self.config["min_validators"]:
-                return True
-            elif current_count >= self.config["max_validators"]:
-                return False
-            else:
-                # Check candidate eligibility
-                candidate_id = transaction.node_id
-                if candidate_id in self.candidate_nodes:
-                    candidate = self.candidate_nodes[candidate_id]
-                    return self._is_eligible_candidate(candidate)
-        
-        return False
-    
-    def _base_station_vote(self, transaction: ValidatorTransaction) -> bool:
-        """Base station voting logic"""
-        if transaction.tx_type == TransactionType.LEAVE_TX:
-            # Check if leaving would compromise network security
-            remaining_validators = len(self.active_validators) - 1
-            return remaining_validators >= self.config["min_validators"]
-        
-        elif transaction.tx_type == TransactionType.JOIN_TX:
-            # Check candidate credentials and network capacity
-            candidate_id = transaction.node_id
-            if candidate_id in self.candidate_nodes:
-                candidate = self.candidate_nodes[candidate_id]
-                return (self._is_eligible_candidate(candidate) and 
-                       len(self.active_validators) < self.config["max_validators"])
-        
-        return False
-    
-    def _process_consensus_rounds(self):
-        """Process ongoing consensus rounds"""
-        current_time = time.time()
-        completed_rounds = []
-        
-        with self.consensus_lock:
-            for round_id, consensus_round in self.consensus_rounds.items():
-                # Check timeout
-                if current_time > consensus_round.timeout:
-                    self.logger.warning(f"Consensus round {round_id} timed out")
-                    completed_rounds.append(round_id)
-                    self.metrics["failed_consensus"] += 1
-                    continue
+            try:
+                vote = self._simulate_validator_vote(validator_id, consensus_round.transaction)
                 
-                # Check if we have enough votes
-                total_validators = len(self.active_validators) + 1  # +1 for base station
-                required_votes = int(total_validators * self.config["consensus_threshold"]) + 1
+                # Record vote
+                with self.consensus_lock:
+                    round_id = consensus_round.round_id
+                    if round_id in self.consensus_rounds:  # Check round still exists
+                        current_round = self.consensus_rounds[round_id]
+                        if current_round.phase == "prepare":
+                            current_round.prepare_votes[validator_id] = vote
+                        elif current_round.phase == "commit":
+                            current_round.commit_votes[validator_id] = vote
                 
-                if consensus_round.phase == "prepare":
-                    approve_votes = sum(1 for vote in consensus_round.prepare_votes.values() if vote)
-                    
-                    if approve_votes >= required_votes:
-                        # Move to commit phase
-                        consensus_round.phase = "commit"
-                        consensus_round.commit_votes = {}
-                        self._broadcast_consensus_request(consensus_round)
-                        self.logger.info(f"Consensus round {round_id} moved to commit phase")
-                    
-                    elif len(consensus_round.prepare_votes) >= total_validators:
-                        # All votes received but not enough approvals
-                        completed_rounds.append(round_id)
-                        self.metrics["failed_consensus"] += 1
-                        self.logger.info(f"Consensus round {round_id} failed in prepare phase")
-                
-                elif consensus_round.phase == "commit":
-                    approve_votes = sum(1 for vote in consensus_round.commit_votes.values() if vote)
-                    
-                    if approve_votes >= required_votes:
-                        # Consensus reached!
-                        consensus_round.phase = "finalized"
-                        consensus_round.success = True
-                        self._finalize_consensus(consensus_round)
-                        completed_rounds.append(round_id)
-                        self.logger.info(f"Consensus round {round_id} successfully finalized")
-                    
-                    elif len(consensus_round.commit_votes) >= total_validators:
-                        # All votes received but not enough approvals
-                        completed_rounds.append(round_id)
-                        self.metrics["failed_consensus"] += 1
-                        self.logger.info(f"Consensus round {round_id} failed in commit phase")
-        
-        # Remove completed rounds
-        for round_id in completed_rounds:
-            if round_id in self.consensus_rounds:
-                del self.consensus_rounds[round_id]
+                self.logger.debug(f"Validator {validator_id} voted {vote} for {consensus_round.transaction.tx_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to get vote from validator {validator_id}: {e}")
     
     def _finalize_consensus(self, consensus_round: ConsensusRound):
-        """Finalize successful consensus round"""
-        transaction = consensus_round.transaction
-        
-        if transaction.tx_type == TransactionType.LEAVE_TX:
-            self._finalize_validator_leave(transaction.node_id)
-        
-        elif transaction.tx_type == TransactionType.JOIN_TX:
-            self._finalize_validator_join(transaction.node_id)
-        
-        # Update last block hash (simulate blockchain update)
-        self.last_block_hash = hashlib.sha256(
-            f"{self.last_block_hash}_{transaction.tx_id}_{time.time()}".encode()
-        ).hexdigest()[:16]
-        
-        self.metrics["validator_changes"] += 1
+        """Finalize successful consensus round (legacy method)"""
+        # Используем новый асинхронный метод
+        self._finalize_consensus_async(consensus_round)
+    
+    def _finalize_consensus_async(self, consensus_round: ConsensusRound):
+        """Finalize consensus asynchronously to avoid blocking"""
+        try:
+            transaction = consensus_round.transaction
+            
+            if transaction.tx_type == TransactionType.LEAVE_TX:
+                self._finalize_validator_leave(transaction.node_id)
+            
+            elif transaction.tx_type == TransactionType.JOIN_TX:
+                self._finalize_validator_join(transaction.node_id)
+            
+            # Update last block hash (simulate blockchain update)
+            self.last_block_hash = hashlib.sha256(
+                f"{self.last_block_hash}_{transaction.tx_id}_{time.time()}".encode()
+            ).hexdigest()[:16]
+            
+            self.metrics["validator_changes"] += 1
+            
+        except Exception as e:
+            self.logger.error(f"Error finalizing consensus: {e}")
     
     def _finalize_validator_leave(self, validator_id: int):
         """Finalize validator leaving process"""
@@ -576,38 +506,73 @@ class ConsensusValidatorManager:
     
     def _promote_best_candidate(self):
         """Promote the best available candidate"""
+        # Защита от рекурсивных вызовов
+        if hasattr(self, '_promoting_candidate') and self._promoting_candidate:
+            self.logger.debug("Already promoting a candidate, skipping")
+            return
+        
         if not self.candidate_nodes:
             return
         
-        # Score candidates
-        best_candidate_id = None
-        best_score = -1.0
+        # Проверяем, что мы действительно нуждаемся в валидаторах
+        if len(self.active_validators) >= self.config["min_validators"]:
+            return
         
-        for candidate_id, candidate in self.candidate_nodes.items():
-            if not self._is_eligible_candidate(candidate):
-                continue
+        try:
+            self._promoting_candidate = True
             
-            # Calculate composite score
-            score = (
-                candidate.rssi_6g / -50.0 +  # Signal strength (normalized)
-                candidate.battery_level +     # Battery level
-                candidate.performance_score + # Performance
-                (0.2 if candidate.dual_radio else 0.0)  # Dual radio bonus
-            )
+            # Score candidates
+            best_candidate_id = None
+            best_score = -1.0
             
-            if score > best_score:
-                best_score = score
-                best_candidate_id = candidate_id
-        
-        if best_candidate_id:
-            join_tx = self._create_join_transaction(self.candidate_nodes[best_candidate_id])
-            self._start_consensus_round(join_tx)
-            self.logger.info(f"Promoting best candidate {best_candidate_id} (score: {best_score:.2f})")
+            for candidate_id, candidate in self.candidate_nodes.items():
+                if not self._is_eligible_candidate(candidate):
+                    continue
+                
+                # Calculate composite score
+                score = (
+                    candidate.rssi_6g / -50.0 +  # Signal strength (normalized)
+                    candidate.battery_level +     # Battery level
+                    candidate.performance_score + # Performance
+                    (0.2 if candidate.dual_radio else 0.0)  # Dual radio bonus
+                )
+                
+                if score > best_score:
+                    best_score = score
+                    best_candidate_id = candidate_id
+            
+            if best_candidate_id:
+                # Проверяем, что кандидат еще не участвует в консенсусе
+                existing_rounds = []
+                with self.consensus_lock:
+                    for round_id, round_data in self.consensus_rounds.items():
+                        if (round_data.transaction.tx_type == TransactionType.JOIN_TX and 
+                            round_data.transaction.node_id == best_candidate_id):
+                            existing_rounds.append(round_id)
+                
+                if not existing_rounds:
+                    join_tx = self._create_join_transaction(self.candidate_nodes[best_candidate_id])
+                    self._start_consensus_round(join_tx)
+                    self.logger.info(f"Promoting best candidate {best_candidate_id} (score: {best_score:.2f})")
+                else:
+                    self.logger.debug(f"Candidate {best_candidate_id} already in consensus round")
+            
+        finally:
+            self._promoting_candidate = False
     
     def _check_candidate_promotion(self, candidate_id: int):
         """Check if candidate should be promoted"""
         if (candidate_id in self.candidate_nodes and 
             len(self.active_validators) < self.config["max_validators"]):
+            
+            candidate = self.candidate_nodes[candidate_id]
+            
+            # ИСПРАВЛЕНО: Проверяем зону кандидата перед продвижением
+            # MANET узлы не должны быть валидаторами
+            if candidate.zone not in [ZoneType.BRIDGE, ZoneType.FIVE_G]:
+                self.logger.debug(f"Candidate {candidate_id} in {candidate.zone.value} zone not eligible for promotion")
+                return
+            
             join_tx = self._create_join_transaction(self.candidate_nodes[candidate_id])
             self._start_consensus_round(join_tx)
     
@@ -623,20 +588,31 @@ class ConsensusValidatorManager:
         current_time = time.time()
         validators_to_remove = []
         
-        for validator_id, validator in self.active_validators.items():
-            # Check for inactivity
-            if current_time - validator.last_activity > self.config["heartbeat_interval"] * 3:
-                self.logger.warning(f"Validator {validator_id} inactive, initiating leave")
-                validators_to_remove.append((validator_id, "inactive"))
-            
-            # Check battery level
-            elif validator.battery_level < self.config["battery_threshold"]:
-                self.logger.warning(f"Validator {validator_id} low battery, initiating leave")
-                validators_to_remove.append((validator_id, "low_battery"))
+        # Создаем копию для итерации без блокировки
+        validators_copy = dict(self.active_validators)
         
-        # Initiate leave process for problematic validators
-        for validator_id, reason in validators_to_remove:
-            self._initiate_validator_leave(validator_id, reason)
+        for validator_id, validator in validators_copy.items():
+            try:
+                # Check for inactivity
+                if current_time - validator.last_activity > self.config["heartbeat_interval"] * 3:
+                    self.logger.warning(f"Validator {validator_id} inactive, initiating leave")
+                    validators_to_remove.append((validator_id, "inactive"))
+                
+                # Check battery level
+                elif validator.battery_level < self.config["battery_threshold"]:
+                    self.logger.warning(f"Validator {validator_id} low battery, initiating leave")
+                    validators_to_remove.append((validator_id, "low_battery"))
+                    
+            except Exception as e:
+                self.logger.warning(f"Error monitoring validator {validator_id}: {e}")
+        
+        # Initiate leave process for problematic validators (max 1 per cycle)
+        if validators_to_remove:
+            validator_id, reason = validators_to_remove[0]  # Process only one at a time
+            try:
+                self._initiate_validator_leave(validator_id, reason)
+            except Exception as e:
+                self.logger.error(f"Failed to initiate leave for validator {validator_id}: {e}")
     
     def _cleanup_expired_transactions(self):
         """Clean up expired pending transactions"""
@@ -687,6 +663,139 @@ class ConsensusValidatorManager:
                 "consensus_threshold": self.config["consensus_threshold"]
             }
         }
+
+    def _request_validator_vote(self, validator_id: int, consensus_round: ConsensusRound):
+        """Request vote from specific validator (legacy method)"""
+        # Используем новую логику голосования
+        try:
+            vote = self._simulate_validator_vote(validator_id, consensus_round.transaction)
+            
+            # Record vote
+            with self.consensus_lock:
+                round_id = consensus_round.round_id
+                if round_id in self.consensus_rounds:  # Check round still exists
+                    current_round = self.consensus_rounds[round_id]
+                    if current_round.phase == "prepare":
+                        current_round.prepare_votes[validator_id] = vote
+                    elif current_round.phase == "commit":
+                        current_round.commit_votes[validator_id] = vote
+            
+            self.logger.debug(f"Validator {validator_id} voted {vote} for {consensus_round.transaction.tx_id}")
+        except Exception as e:
+            self.logger.warning(f"Failed to get vote from validator {validator_id}: {e}")
+    
+    def _simulate_validator_vote(self, validator_id: int, transaction: ValidatorTransaction) -> bool:
+        """Simulate validator voting decision"""
+        # Base station always votes according to policy
+        if validator_id == self.base_station_id:
+            return self._base_station_vote(transaction)
+        
+        # Regular validators vote based on criteria
+        if transaction.tx_type == TransactionType.LEAVE_TX:
+            # Usually approve leave requests (validators can decide to leave)
+            return True
+        
+        elif transaction.tx_type == TransactionType.JOIN_TX:
+            # Check if we need more validators
+            current_count = len(self.active_validators)
+            if current_count < self.config["min_validators"]:
+                return True
+            elif current_count >= self.config["max_validators"]:
+                return False
+            else:
+                # Check candidate eligibility
+                candidate_id = transaction.node_id
+                if candidate_id in self.candidate_nodes:
+                    candidate = self.candidate_nodes[candidate_id]
+                    return self._is_eligible_candidate(candidate)
+        
+        return False
+    
+    def _base_station_vote(self, transaction: ValidatorTransaction) -> bool:
+        """Base station voting logic"""
+        if transaction.tx_type == TransactionType.LEAVE_TX:
+            # Check if leaving would compromise network security
+            remaining_validators = len(self.active_validators) - 1
+            return remaining_validators >= self.config["min_validators"]
+        
+        elif transaction.tx_type == TransactionType.JOIN_TX:
+            # Check candidate credentials and network capacity
+            candidate_id = transaction.node_id
+            if candidate_id in self.candidate_nodes:
+                candidate = self.candidate_nodes[candidate_id]
+                return (self._is_eligible_candidate(candidate) and 
+                       len(self.active_validators) < self.config["max_validators"])
+        
+        return False
+    
+    def _process_consensus_rounds(self):
+        """Process ongoing consensus rounds"""
+        current_time = time.time()
+        completed_rounds = []
+        
+        # Получаем копию раундов для обработки без блокировки
+        rounds_to_process = {}
+        with self.consensus_lock:
+            rounds_to_process = dict(self.consensus_rounds)
+        
+        for round_id, consensus_round in rounds_to_process.items():
+            # Check timeout
+            if current_time > consensus_round.timeout:
+                self.logger.warning(f"Consensus round {round_id} timed out")
+                completed_rounds.append(round_id)
+                self.metrics["failed_consensus"] += 1
+                continue
+            
+            # Check if we have enough votes
+            total_validators = len(self.active_validators) + 1  # +1 for base station
+            required_votes = max(1, int(total_validators * self.config["consensus_threshold"]))
+            
+            if consensus_round.phase == "prepare":
+                approve_votes = sum(1 for vote in consensus_round.prepare_votes.values() if vote)
+                
+                if approve_votes >= required_votes:
+                    # Move to commit phase
+                    with self.consensus_lock:
+                        if round_id in self.consensus_rounds:  # Double-check still exists
+                            self.consensus_rounds[round_id].phase = "commit"
+                            self.consensus_rounds[round_id].commit_votes = {}
+                    
+                    # Broadcast outside of lock to avoid deadlock
+                    self._broadcast_consensus_request_async(consensus_round)
+                    self.logger.info(f"Consensus round {round_id} moved to commit phase")
+                
+                elif len(consensus_round.prepare_votes) >= total_validators:
+                    # All votes received but not enough approvals
+                    completed_rounds.append(round_id)
+                    self.metrics["failed_consensus"] += 1
+                    self.logger.info(f"Consensus round {round_id} failed in prepare phase")
+            
+            elif consensus_round.phase == "commit":
+                approve_votes = sum(1 for vote in consensus_round.commit_votes.values() if vote)
+                
+                if approve_votes >= required_votes:
+                    # Consensus reached!
+                    completed_rounds.append(round_id)
+                    with self.consensus_lock:
+                        if round_id in self.consensus_rounds:  # Double-check still exists
+                            self.consensus_rounds[round_id].phase = "finalized"
+                            self.consensus_rounds[round_id].success = True
+                    
+                    # Finalize outside of lock
+                    self._finalize_consensus_async(consensus_round)
+                    self.logger.info(f"Consensus round {round_id} successfully finalized")
+                
+                elif len(consensus_round.commit_votes) >= total_validators:
+                    # All votes received but not enough approvals
+                    completed_rounds.append(round_id)
+                    self.metrics["failed_consensus"] += 1
+                    self.logger.info(f"Consensus round {round_id} failed in commit phase")
+        
+        # Remove completed rounds
+        with self.consensus_lock:
+            for round_id in completed_rounds:
+                if round_id in self.consensus_rounds:
+                    del self.consensus_rounds[round_id]
 
 # Testing function
 def test_consensus_validator_manager():

@@ -280,18 +280,10 @@ class AdvancedCrossZoneRunner:
             self.node_rssi[node_id] = -85.0 - (radius / 50.0) + random.uniform(-10, 5)
             self.node_battery[node_id] = random.uniform(0.5, 0.9)
             
-            # Register with validator manager (MANET nodes less likely to be validators)
-            success = self.validator_manager.register_node(
-                node_id=node_id,
-                zone=ZoneType.MANET,
-                rssi_6g=self.node_rssi[node_id],
-                battery_level=self.node_battery[node_id],
-                cert_valid=random.uniform(0, 1) > 0.2,  # 80% have valid certs
-                dual_radio=False
-            )
-            
-            if success:
-                self.logger.debug(f"📱 MANET node {node_id} registered as potential candidate")
+            # ИСПРАВЛЕНО: MANET узлы НЕ регистрируются как валидаторы
+            # Они не соответствуют критериям eligibility (zone not in [BRIDGE, FIVE_G])
+            # Узлы в MANET зоне управляются через AODV роутинг, а не консенсус валидаторов
+            self.logger.debug(f"📱 MANET node {node_id} created (non-validator, AODV routing)")
             
             node_id += 1
         
@@ -411,10 +403,10 @@ class AdvancedCrossZoneRunner:
                 "python3", "ns3", "run",
                 f"{self.ns3_script} "
                 f"--nManetNodes={self.manet_nodes} "
-                f"--n5gNodes={self.fiveg_nodes} "
+                f"--n6gNodes={self.fiveg_nodes} "
                 f"--nBridgeNodes={self.bridge_nodes} "
                 f"--simulationTime={self.simulation_time} "
-                f"--fivegRadius={self.fiveg_radius} "
+                f"--sixgRadius={self.fiveg_radius} "
                 f"--enableNetAnim=true"
             ]
             
@@ -458,7 +450,7 @@ class AdvancedCrossZoneRunner:
                         self.statistics["cross_zone_transactions"] += 1
                     elif "✅ Validator" in line and "validated transaction" in line:
                         self.statistics["validated_transactions"] += 1
-                
+                    
                 # Print live statistics every 30 seconds
                 current_time = time.time()
                 if current_time - last_stats_time >= 30.0:
