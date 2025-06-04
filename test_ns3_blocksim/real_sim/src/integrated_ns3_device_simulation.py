@@ -464,7 +464,7 @@ class IntegratedNS3DeviceSimulation:
         
         # Ограничиваем диапазон для 6G сети
         return max(-130.0, min(-20.0, rssi))
-
+    
     def _get_mobility_speed(self, device_type: str) -> float:
         """Получение скорости мобильности для типа устройства"""
         # УВЕЛИЧЕНЫ СКОРОСТИ для большей мобильности

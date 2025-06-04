@@ -177,7 +177,7 @@ def run_real_ns3_simulation(scenario_name: str, duration: int, output_dir: str) 
         'duration': duration,
         'nodes': sum(scenario['device_distribution'].values()),
         'output_dir': output_dir
-    }
+            }
     
     device_config = {
         'scenario': scenario,
