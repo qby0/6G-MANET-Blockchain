@@ -76,18 +76,21 @@ output/
 .ccache/
 
 # NS-3 directory (contains its own git repository)
-test_ns3_blocksim/external/ns-3/
+# test_ns3_blocksim/external/ns-3/  # Закомментировано, чтобы разрешить отслеживание scratch и src/blockchain
 test_ns3_blocksim/external/netanim/
 
 # Logs and databases
 *.sqlite3
 *.sqlite
 *.db
+simulation_log.txt
 
 # Results and temporary files
 results/*.json
 results/
+results_hybrid/
 test_ns3_blocksim/results/
+test_ns3_blocksim/real_sim/results/
 *.orig
 .*~
 
@@ -108,4 +111,4 @@ random_distribution_improved_test.png
 h origin main
 h
 test_ns3_blocksim/external/netanim
-.cursorignore
+.cursor/
