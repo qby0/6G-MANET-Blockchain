@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# pytest
+.pytest_cache/
+*.pytest_cache
+.coverage
+htmlcov/
+
+# Results and output
+results/
+*.json
+*.png
+*.pdf
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# NS-3 specific
+*.pcap
+*.tr
+*.xml
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
