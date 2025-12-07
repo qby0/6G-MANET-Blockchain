@@ -1,0 +1,9 @@
+# Ignore everything on scratch by default, except the provided examples
+/*
+!.gitignore
+
+!nested-subdir/
+!subdir/
+!scratch-simulator.cc
+!sixg-wigig-sim.cc
+!CMakeLists.txt
