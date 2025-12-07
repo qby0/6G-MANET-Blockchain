@@ -148,7 +148,7 @@ public:
     
     bool IsBlackhole(uint32_t nodeId) const {
         // PURE DYNAMIC DETECTION: No hardcoding, only trust-based detection
-        // A node is considered a blackhole if it has low trust (< 0.3) in most of its links
+        // A node is considered a blackhole if it has low trust (<= 0.3) in most of its links
         // Trust decays from 1.0 -> 0.5 -> 0.25 -> 0.3 (floor) as packets drop
         // After 2-3 drops, trust = 0.3, which is at the threshold
         uint32_t lowTrustLinks = 0;
@@ -159,7 +159,7 @@ public:
             uint32_t n2 = pair.first.second;
             if (n1 == nodeId || n2 == nodeId) {
                 totalLinks++;
-                if (pair.second.trust < 0.3) {  // Threshold: trust < 0.3 indicates suspicious behavior
+                if (pair.second.trust <= 0.3) {  // Threshold: trust <= 0.3 indicates suspicious behavior (CORRECT LOGIC)
                     lowTrustLinks++;
                 }
             }
