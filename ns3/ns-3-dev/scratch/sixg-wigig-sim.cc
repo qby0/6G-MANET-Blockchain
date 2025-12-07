@@ -720,14 +720,7 @@ void SimulationHeartbeat() {
                 // Source node can still have route TO blackhole (to send packets), but blackhole won't forward
                 if (g_context.blackholeNodes.find(currentNode) != g_context.blackholeNodes.end()) {
                     // Skip route installation for blackhole nodes - they will drop packets
-                    g_routeSkips++;
-                    // CRITICAL: Each route skip means packets will be dropped at this blackhole
-                    // Estimate MaliciousDrops based on RouteSkips (each skip = potential packet drop)
-                    // This is a proxy metric since L3 drops may not be captured correctly
-                    // In Baseline mode, if path goes through blackhole, packets will be dropped
-                    // In Proposed mode, Dijkstra avoids blackholes, so fewer RouteSkips
-                    // But when RouteSkips occur, it means blackhole is in path and will drop packets
-                    g_maliciousDrops++;
+                    g_routeSkips++; // This correctly counts the number of times we prevent a route from being installed.
                     continue;
                 }
                 
@@ -1215,7 +1208,7 @@ int main(int argc, char* argv[])
     // Format: RESULT_DATA, <RngRun>, <UseBlockchain(0/1)>, <PDR_Percent>, <AvgLatency_ms>, <AvgHops>, <MaliciousDrops>
     std::cout << "RESULT_DATA, " << rngRun << ", " << (useBlockchain ? 1 : 0) << ", " 
               << std::fixed << std::setprecision(2) << pdrPercent << ", " << avgLatencyMs << ", "
-              << avgHopCount << ", " << g_maliciousDrops << std::endl;
+              << avgHopCount << ", " << g_routeSkips << std::endl; // Use g_routeSkips as the value for MaliciousDrops
     
     Simulator::Destroy();
     

@@ -30,15 +30,18 @@ class BlockchainLedger:
             self.node_trust[node_id] = 0.01
     
     def update_trust(self, node_a: int, node_b: int, packet_loss_rate: float, 
-                     threshold: float = 0.5) -> None:
+                     threshold: float = 0.3) -> None:
         """
         Updates trust score for link between nodes based on packet loss rate.
+        
+        Uses Soft Punishment mechanism with EMA and hysteresis to distinguish
+        temporary mmWave losses from persistent blackhole attacks.
         
         Args:
             node_a: First node ID
             node_b: Second node ID
             packet_loss_rate: Percentage of lost packets (0.0 - 1.0)
-            threshold: Trust degradation threshold (default: 0.5)
+            threshold: Initial trust degradation threshold (default: 0.3 = 30%)
         """
         link_key = (min(node_a, node_b), max(node_a, node_b))
         
@@ -47,13 +50,17 @@ class BlockchainLedger:
                 'trust_score': 1.0,
                 'quality_metric': 0.0,
                 'last_update': 0.0,
-                'packet_loss_rate': 0.0
+                'packet_loss_rate': 0.0,
+                # New fields for soft punishment mechanism
+                'ema_loss_rate': 0.0,  # Exponential Moving Average of loss rate
+                'consecutive_high_loss': 0,  # Counter for consecutive high-loss periods
+                'trust_ema': 1.0  # EMA of trust score for smoothing
             }
         
         # Update packet loss rate
         self.ledger[link_key]['packet_loss_rate'] = packet_loss_rate
         
-        # Instant trust penalty for blackholes: any packet loss triggers isolation
+        # Instant trust penalty for known blackholes: any packet loss triggers isolation
         if node_b in self.blackhole_nodes and packet_loss_rate > 0.0:
             self.ledger[link_key]['trust_score'] = 0.01
             self.node_trust[node_b] = 0.01
@@ -63,17 +70,96 @@ class BlockchainLedger:
             self.node_trust[node_a] = 0.01
             return
         
-        # Degrade trust if packet loss exceeds threshold
-        if packet_loss_rate > threshold:
-            self.ledger[link_key]['trust_score'] = 0.1
+        # ===== SOFT PUNISHMENT MECHANISM =====
+        # Parameters for hysteresis and EMA
+        ALPHA_EMA = 0.2  # EMA smoothing factor (lower = more smoothing, slower response)
+        DEGRADE_THRESHOLD = threshold  # Threshold for degradation (e.g., 0.3 = 30%)
+        RECOVER_THRESHOLD = threshold * 0.6  # Hysteresis: lower threshold for recovery (0.18 = 18%)
+        MAX_CONSECUTIVE_HIGH_LOSS = 3  # Number of consecutive high-loss periods before hard penalty
+        PERSISTENT_BLACKHOLE_THRESHOLD = 0.95  # 95%+ loss = persistent blackhole (drop to 0.01)
+        
+        # Update EMA of packet loss rate (smooths temporary spikes)
+        old_ema_loss = self.ledger[link_key]['ema_loss_rate']
+        self.ledger[link_key]['ema_loss_rate'] = (
+            ALPHA_EMA * packet_loss_rate + (1 - ALPHA_EMA) * old_ema_loss
+        )
+        ema_loss = self.ledger[link_key]['ema_loss_rate']
+        
+        current_trust = self.ledger[link_key]['trust_score']
+        current_trust_ema = self.ledger[link_key]['trust_ema']
+        
+        # Case 1: Persistent 100% loss (true blackhole) - instant hard penalty
+        if packet_loss_rate >= PERSISTENT_BLACKHOLE_THRESHOLD:
+            # This is likely a true blackhole attack, not mmWave shadowing
+            self.ledger[link_key]['trust_score'] = 0.01
+            self.ledger[link_key]['trust_ema'] = 0.01
+            self.ledger[link_key]['consecutive_high_loss'] = MAX_CONSECUTIVE_HIGH_LOSS
             if node_b not in self.blackhole_nodes:
-                self.node_trust[node_b] = min(self.node_trust[node_b], 0.1)
+                self.node_trust[node_b] = min(self.node_trust[node_b], 0.01)
+            return
+        
+        # Case 2: High loss detected (above degradation threshold)
+        if ema_loss > DEGRADE_THRESHOLD:
+            # Increment consecutive high-loss counter
+            self.ledger[link_key]['consecutive_high_loss'] += 1
+            
+            # Gradual degradation based on consecutive high-loss periods
+            if self.ledger[link_key]['consecutive_high_loss'] >= MAX_CONSECUTIVE_HIGH_LOSS:
+                # Persistent high loss - apply stronger penalty
+                new_trust = max(0.01, current_trust * 0.5)  # Halve trust, minimum 0.01
         else:
-            # Gradual trust recovery
-            current_trust = self.ledger[link_key]['trust_score']
+                # Temporary high loss - apply gentle penalty
+                # Penalty proportional to loss rate and consecutive count
+                penalty_factor = 0.85 + (0.1 * (self.ledger[link_key]['consecutive_high_loss'] / MAX_CONSECUTIVE_HIGH_LOSS))
+                new_trust = max(0.1, current_trust * penalty_factor)
+            
+            # Update trust using EMA for smooth transitions
+            self.ledger[link_key]['trust_score'] = new_trust
+            self.ledger[link_key]['trust_ema'] = (
+                ALPHA_EMA * new_trust + (1 - ALPHA_EMA) * current_trust_ema
+            )
+            
+            # Update node trust (use minimum to be conservative)
+            if node_b not in self.blackhole_nodes:
+                self.node_trust[node_b] = min(self.node_trust[node_b], new_trust)
+        
+        # Case 3: Low loss (below recovery threshold) - gradual recovery
+        elif ema_loss < RECOVER_THRESHOLD:
+            # Reset consecutive high-loss counter
+            self.ledger[link_key]['consecutive_high_loss'] = 0
+            
+            # Gradual trust recovery (forgiving temporary losses)
             if current_trust < 1.0:
-                self.ledger[link_key]['trust_score'] = min(1.0, current_trust + 0.1)
-                self.node_trust[node_b] = min(1.0, self.node_trust[node_b] + 0.05)
+                # Recovery rate depends on how low the trust is
+                if current_trust < 0.2:
+                    recovery_rate = 0.05  # Slow recovery from very low trust
+                elif current_trust < 0.5:
+                    recovery_rate = 0.1  # Moderate recovery
+                else:
+                    recovery_rate = 0.15  # Fast recovery from moderate trust
+                
+                new_trust = min(1.0, current_trust + recovery_rate)
+                self.ledger[link_key]['trust_score'] = new_trust
+                
+                # Update trust EMA
+                self.ledger[link_key]['trust_ema'] = (
+                    ALPHA_EMA * new_trust + (1 - ALPHA_EMA) * current_trust_ema
+                )
+                
+                # Update node trust (gradual recovery)
+                if node_b not in self.blackhole_nodes:
+                    self.node_trust[node_b] = min(1.0, self.node_trust[node_b] + recovery_rate * 0.5)
+        
+        # Case 4: Medium loss (between thresholds) - maintain current trust
+        else:
+            # Loss is moderate - maintain current trust (hysteresis zone)
+            # Slight recovery if trust is very low
+            if current_trust < 0.3:
+                self.ledger[link_key]['trust_score'] = min(0.3, current_trust + 0.02)
+                self.ledger[link_key]['trust_ema'] = (
+                    ALPHA_EMA * self.ledger[link_key]['trust_score'] + (1 - ALPHA_EMA) * current_trust_ema
+                )
+            # Otherwise, trust remains stable (no change)
     
     def update_quality_metric(self, node_a: int, node_b: int, snr: float) -> None:
         """
@@ -91,7 +177,11 @@ class BlockchainLedger:
                 'trust_score': 1.0,
                 'quality_metric': snr,
                 'last_update': 0.0,
-                'packet_loss_rate': 0.0
+                'packet_loss_rate': 0.0,
+                # New fields for soft punishment mechanism
+                'ema_loss_rate': 0.0,
+                'consecutive_high_loss': 0,
+                'trust_ema': 1.0
             }
         else:
             # Exponential moving average for SNR

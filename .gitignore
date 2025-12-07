@@ -2,4 +2,7 @@
 ns3/INSTALLATION_MINI.txt
 ns3/README.md
 ns3/ns-3-dev
+!ns3/ns-3-dev/scratch/sixg-wigig-sim.cc
+!ns3/ns-3-dev/scratch/.gitignore
 diploma-latex/
+thesis_technical_sections.md
