@@ -45,6 +45,15 @@ uint64_t g_reliabilityDrops = 0;   // Packets dropped by blackhole nodes (reliab
 bool g_lowTrustLogged = false;     // Flag for low trust logging (reset per BuildGraph call)
 bool g_costDebugLogged = false;    // Flag for cost debug logging (reset per BuildGraph call)
 
+// Control Plane Metrics
+uint64_t g_routeFlaps = 0;         // Number of route changes (flapping)
+std::map<uint32_t, std::vector<uint32_t>> g_lastPaths;  // FlowID -> Last path (for flapping detection)
+double g_avgSnrCostPart = 0.0;     // Average SNR cost component in path calculations
+double g_avgTrustCostPart = 0.0;  // Average Trust cost component in path calculations
+uint32_t g_pathCalculations = 0;  // Number of path calculations (for averaging)
+uint64_t g_timeSeriesTx = 0;      // Total TX packets for time series
+uint64_t g_timeSeriesRx = 0;      // Total RX packets for time series
+
 // ============================================================================
 // Application Layer Tracking (Realistic Detection)
 // ============================================================================
@@ -385,8 +394,10 @@ public:
      * Each link in the path contributes its cost (computed from SNR and Trust) to the total path cost.
      * Dijkstra's algorithm finds the path with minimum total cost (sum of all link costs).
      * This ensures that paths with high-quality links (good SNR and high trust) are preferred.
+     * 
+     * Also calculates cost composition (SNR vs Trust parts) for control plane metrics.
      */
-    std::vector<uint32_t> CalculatePath(uint32_t source, uint32_t dest) {
+    std::vector<uint32_t> CalculatePath(uint32_t source, uint32_t dest, BlockchainLedger* ledger = nullptr) {
         std::vector<uint32_t> path;
         
         if (m_graph.find(source) == m_graph.end() || 
@@ -460,6 +471,39 @@ public:
                 current = prev[current];
             }
             std::reverse(path.begin(), path.end());
+            
+            // Control Plane Metrics: Calculate cost composition for this path
+            if (ledger && m_useBlockchain && path.size() > 1) {
+                double totalSnrCost = 0.0;
+                double totalTrustCost = 0.0;
+                
+                // Calculate cost composition for each link in the path
+                for (size_t i = 0; i < path.size() - 1; i++) {
+                    uint32_t u = path[i];
+                    uint32_t v = path[i + 1];
+                    
+                    // Get trust and SNR from ledger
+                    double trust = ledger->GetTrust(u, v);
+                    double snrDb = ledger->GetSnr(u, v);
+                    
+                    // Use same normalization as BuildGraph
+                    const double MinSNR = 5.0;
+                    const double MaxSNR = 40.0;
+                    double snrNorm = std::max(0.01, std::min(1.0, (snrDb - MinSNR) / (MaxSNR - MinSNR)));
+                    
+                    // Calculate cost components
+                    double snrCost = 1.0 / (snrNorm * snrNorm);
+                    double trustCost = 1.0 / (trust * trust);
+                    
+                    totalSnrCost += m_alpha * snrCost;
+                    totalTrustCost += m_beta * trustCost;
+                }
+                
+                // Accumulate for global averages
+                g_avgSnrCostPart += totalSnrCost;
+                g_avgTrustCostPart += totalTrustCost;
+                g_pathCalculations++;
+            }
         }
         
         return path;
@@ -527,6 +571,9 @@ void AppRxCallback(std::string context, Ptr<const Packet> packet) {
     if (g_pendingPackets.find(packet->GetUid()) != g_pendingPackets.end()) {
         g_deliveredPackets.insert(packet->GetUid());
     }
+    
+    // Control Plane Metrics: Update RX counter for time series
+    g_timeSeriesRx++;
 }
 
 /**
@@ -552,7 +599,7 @@ void AppTxCallback(std::string context, Ptr<const Packet> packet) {
     
     // Get the current path to determine the first hop (nextHop)
     // This ensures symmetric trust updates: same hop is credited on success and penalized on timeout
-    std::vector<uint32_t> path = g_context.routingEngine.CalculatePath(sourceId, destId);
+    std::vector<uint32_t> path = g_context.routingEngine.CalculatePath(sourceId, destId, &g_context.ledger);
     uint32_t nextHopId = (path.size() > 1) ? path[1] : destId;  // First hop, or dest if direct
     
     TrackedPacket tracked;
@@ -563,6 +610,9 @@ void AppTxCallback(std::string context, Ptr<const Packet> packet) {
     tracked.nextHopId = nextHopId;  // Store first hop for symmetric trust updates
     
     g_pendingPackets[packet->GetUid()] = tracked;
+    
+    // Control Plane Metrics: Update TX counter for time series
+    g_timeSeriesTx++;
 }
 
 /**
@@ -896,8 +946,23 @@ void SimulationHeartbeat() {
         uint32_t source = flow.first;
         uint32_t dest = flow.second;
         
-        // Calculate path using Dijkstra
-        std::vector<uint32_t> path = g_context.routingEngine.CalculatePath(source, dest);
+        // Create flow ID for route stability tracking
+        uint32_t flowId = source * 1000 + dest;  // Simple flow ID encoding
+        
+        // Calculate path using Dijkstra (with cost composition tracking)
+        std::vector<uint32_t> path = g_context.routingEngine.CalculatePath(source, dest, &g_context.ledger);
+        
+        // Control Plane Metrics: Route Stability (Flapping Detection)
+        if (g_lastPaths.find(flowId) != g_lastPaths.end()) {
+            // Compare with previous path
+            const std::vector<uint32_t>& lastPath = g_lastPaths[flowId];
+            if (path != lastPath) {
+                // Path changed - increment flapping counter
+                g_routeFlaps++;
+            }
+        }
+        // Update stored path for this flow
+        g_lastPaths[flowId] = path;
         
         if (path.size() > 1) {
             std::ostringstream pathStr;
@@ -975,6 +1040,28 @@ void SimulationHeartbeat() {
 }
 
 // ============================================================================
+// Time Series Data Function (Control Plane Metrics)
+// ============================================================================
+
+void TimeSeriesDataOutput() {
+    double currentTime = Simulator::Now().GetSeconds();
+    
+    // Get current TX and RX counts from global counters
+    // These are updated by trace callbacks
+    // Note: In a more sophisticated implementation, we'd query FlowMonitor directly
+    
+    // Output time series data
+    std::cout << "[TIME_SERIES] Time=" << std::fixed << std::setprecision(1) << currentTime
+              << ", Tx=" << g_timeSeriesTx
+              << ", Rx=" << g_timeSeriesRx << std::endl;
+    
+    // Reschedule for next time series output (every 1.0 second)
+    if (currentTime < 1000.0) {  // Safety limit
+        Simulator::Schedule(Seconds(1.0), &TimeSeriesDataOutput);
+    }
+}
+
+// ============================================================================
 // Main Function
 // ============================================================================
 
@@ -1029,6 +1116,15 @@ int main(int argc, char* argv[])
     g_blackholeL3Drops = 0;
     g_routeSkips = 0;
     g_trustPenalties = 0;
+    
+    // Reset Control Plane Metrics
+    g_routeFlaps = 0;
+    g_lastPaths.clear();
+    g_avgSnrCostPart = 0.0;
+    g_avgTrustCostPart = 0.0;
+    g_pathCalculations = 0;
+    g_timeSeriesTx = 0;
+    g_timeSeriesRx = 0;
     
     // Enable logging for route information and applications
     // MINIMIZED for production campaign: Only WARN and ERROR levels
@@ -1336,9 +1432,10 @@ int main(int argc, char* argv[])
     NS_LOG_UNCOND("  - AppTx/Rx: Connected for End-to-End ACK simulation (15% sampling, 200ms timeout)");
     
     // ========================================================================
-    // 10. Schedule Initial Heartbeat
+    // 10. Schedule Initial Heartbeat and Time Series Output
     // ========================================================================
     Simulator::Schedule(Seconds(0.0), &SimulationHeartbeat);
+    Simulator::Schedule(Seconds(1.0), &TimeSeriesDataOutput);  // Start time series output after 1 second
     
     // ========================================================================
     // 11. Run Simulation
@@ -1419,6 +1516,24 @@ int main(int argc, char* argv[])
     NS_LOG_UNCOND("  L3 Drops by Blackholes: " << g_blackholeL3Drops);
     NS_LOG_UNCOND("  Routes Skipped: " << g_routeSkips << " (blackhole avoidance)");
     NS_LOG_UNCOND("  Trust Penalties Applied: " << g_trustPenalties);
+    
+    // Control Plane Metrics Output
+    NS_LOG_UNCOND("Control Plane Metrics:");
+    NS_LOG_UNCOND("  Total Route Flaps: " << g_routeFlaps << " (route stability measure)");
+    
+    // Calculate and output cost composition
+    if (g_pathCalculations > 0) {
+        double avgSnrPart = g_avgSnrCostPart / static_cast<double>(g_pathCalculations);
+        double avgTrustPart = g_avgTrustCostPart / static_cast<double>(g_pathCalculations);
+        double totalAvgCost = avgSnrPart + avgTrustPart;
+        
+        if (totalAvgCost > 0.0) {
+            double snrPercent = (avgSnrPart / totalAvgCost) * 100.0;
+            double trustPercent = (avgTrustPart / totalAvgCost) * 100.0;
+            NS_LOG_UNCOND("  Cost Composition: SNR=" << std::fixed << std::setprecision(1) << snrPercent 
+                      << "%, Trust=" << std::fixed << std::setprecision(1) << trustPercent << "%");
+        }
+    }
     
     // Output detailed drop summary for log analysis
     std::cout << "[DROP_SUMMARY] RunID=" << rngRun 
