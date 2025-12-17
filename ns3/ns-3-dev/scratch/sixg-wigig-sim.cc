@@ -41,7 +41,24 @@ uint64_t g_l3Drops = 0;            // L3 layer drops (routing issues, blackholes
 uint64_t g_blackholeL3Drops = 0;   // L3 drops specifically by blackhole nodes
 uint64_t g_routeSkips = 0;         // Routes skipped due to blackhole detection
 uint64_t g_trustPenalties = 0;     // Number of trust penalties applied
-uint64_t g_maliciousDrops = 0;     // Packets dropped by blackhole nodes
+uint64_t g_reliabilityDrops = 0;   // Packets dropped by blackhole nodes (reliability metric)
+bool g_lowTrustLogged = false;     // Flag for low trust logging (reset per BuildGraph call)
+bool g_costDebugLogged = false;    // Flag for cost debug logging (reset per BuildGraph call)
+
+// ============================================================================
+// Application Layer Tracking (Realistic Detection)
+// ============================================================================
+struct TrackedPacket {
+    uint32_t packetUid;
+    Time sendTime;
+    uint32_t sourceNodeId;
+    uint32_t destNodeId;
+    uint32_t nextHopId;  // First hop on the path (for symmetric trust updates)
+};
+
+std::map<uint32_t, TrackedPacket> g_pendingPackets;
+std::set<uint32_t> g_deliveredPackets;
+std::map<uint32_t, uint32_t> g_sourceToDest; // Source -> Dest Mapping
 
 // ============================================================================
 // Data Structures
@@ -63,7 +80,15 @@ struct LinkMetric {
  */
 class BlockchainLedger {
 public:
-    BlockchainLedger() : m_lossThreshold(0.5), m_defaultTrust(1.0), m_defaultSnr(20.0) {}
+    BlockchainLedger() : m_lossThreshold(0.5), m_defaultTrust(1.0), m_defaultSnr(20.0), m_trustFloor(0.2) {}
+    
+    void SetTrustFloor(double floor) {
+        m_trustFloor = floor;
+    }
+    
+    double GetTrustFloor() const {
+        return m_trustFloor;
+    }
     
     void UpdateMetric(uint32_t src, uint32_t dst, double snr, bool isDrop, bool useBlockchain = true) {
         // OPTIMIZED: Removed verbose logging - called too frequently (every packet)
@@ -83,22 +108,19 @@ public:
             metric.movingAvgSnr = alpha * snr + (1.0 - alpha) * metric.movingAvgSnr;
         }
         
-        // BALANCED TRUST DECAY: Soft penalty with safety floor (AVAILABILITY-FIRST)
-        // Changed from PARANOID MODE to prevent Total Network Collapse
-        // Trust should never go below 0.3 to maintain connectivity even through "bad" nodes
+        // TASK 2: Asymmetric Trust - Hard Drop, Slow Recovery
+        // Trust should never go below 0.2 to maintain connectivity even through "bad" nodes
         // CRITICAL: Only apply trust penalties in Proposed mode (useBlockchain = true)
         // In Baseline mode, trust is not used for routing, so penalties are unnecessary
         if (isDrop && useBlockchain) {
             metric.drops++;
             g_trustPenalties++;
             
-            double oldTrust = metric.trust;
-            
-            // Soft penalty: Halve trust on each drop, but enforce safety floor
-            // trust = max(0.3, trust * 0.5)
-            // This ensures links remain usable (expensive but not dead) even after multiple drops
-            // PDR of 30% is better than 0% - we prioritize Availability over perfect Security
-            metric.trust = std::max(0.3, metric.trust * 0.5);
+            // TASK 2: Asymmetric Trust - Hard Drop, Slow Recovery
+            // Geometric decay: trust = max(m_trustFloor, trust * 0.5)
+            // Drops fast to prevent On-Off attacks
+            // Floor is configurable for ablation study
+            metric.trust = std::max(m_trustFloor, metric.trust * 0.5);
             
             // OPTIMIZED: Removed verbose logging - trust penalties happen frequently
             // std::cout << "[TRUST_LOG] TRUST_PENALTY: Node " << src << " -> " << dst 
@@ -110,6 +132,13 @@ public:
         } else if (isDrop) {
             // Baseline mode: Just count drops, don't apply trust penalties
             metric.drops++;
+        } else if (!isDrop && useBlockchain) {
+            // TASK 2: Slow Down Recovery (Final Calibration)
+            // Linear recovery: trust = min(1.0, trust + 0.005)
+            // It takes ~200 successful packets to recover full trust (from 0.2 to 1.0)
+            // This proves we handle "On-Off" attacks by requiring a long history of success
+            // Slow recovery ensures attackers cannot quickly redeem themselves after dropping packets
+            metric.trust = std::min(1.0, metric.trust + 0.005);
         }
     }
     
@@ -148,9 +177,9 @@ public:
     
     bool IsBlackhole(uint32_t nodeId) const {
         // PURE DYNAMIC DETECTION: No hardcoding, only trust-based detection
-        // A node is considered a blackhole if it has low trust (<= 0.3) in most of its links
-        // Trust decays from 1.0 -> 0.5 -> 0.25 -> 0.3 (floor) as packets drop
-        // After 2-3 drops, trust = 0.3, which is at the threshold
+        // A node is considered a blackhole if it has low trust (<= m_trustFloor) in most of its links
+        // Trust decays from 1.0 -> 0.5 -> 0.25 -> m_trustFloor (floor) as packets drop
+        // After 2-3 drops, trust = m_trustFloor, which is at the threshold
         uint32_t lowTrustLinks = 0;
         uint32_t totalLinks = 0;
         
@@ -159,7 +188,7 @@ public:
             uint32_t n2 = pair.first.second;
             if (n1 == nodeId || n2 == nodeId) {
                 totalLinks++;
-                if (pair.second.trust <= 0.3) {  // Threshold: trust <= 0.3 indicates suspicious behavior (CORRECT LOGIC)
+                if (pair.second.trust <= m_trustFloor) {  // Threshold: trust <= m_trustFloor indicates suspicious behavior (CORRECT LOGIC)
                     lowTrustLinks++;
                 }
             }
@@ -184,6 +213,7 @@ private:
     double m_lossThreshold;
     double m_defaultTrust;
     double m_defaultSnr;
+    double m_trustFloor;  // Configurable trust floor for ablation study
     
     std::pair<uint32_t, uint32_t> MakeKey(uint32_t a, uint32_t b) const {
         return std::make_pair(std::min(a, b), std::max(a, b));
@@ -195,11 +225,23 @@ private:
  */
 class RoutingEngine {
 public:
-    RoutingEngine(double alpha = 1.0, double beta = 1000.0) 
+    RoutingEngine(double alpha = 1.0, double beta = 500.0) 
         : m_alpha(alpha), m_beta(beta), m_useBlockchain(true) {}
     
     void SetUseBlockchain(bool useBlockchain) {
         m_useBlockchain = useBlockchain;
+    }
+    
+    void SetBeta(double beta) {
+        m_beta = beta;
+    }
+    
+    double GetBeta() const {
+        return m_beta;
+    }
+    
+    double GetAlpha() const {
+        return m_alpha;
     }
     
     /**
@@ -210,6 +252,12 @@ public:
                     const std::set<uint32_t>& blackholeNodes, double defaultSnr = 20.0) {
         m_graph.clear();
         m_weights.clear();
+        
+        // TASK 4: Reset low trust logging flag for each BuildGraph call
+        g_lowTrustLogged = false;
+        
+        // TASK 1: Reset cost debug logging flag for each BuildGraph call
+        g_costDebugLogged = false;
         
         uint32_t numNodes = nodes.GetN();
         
@@ -244,35 +292,78 @@ public:
                     // IMPORTANT: We do NOT pre-set trust for blackhole nodes here
                     // System must DETECT them dynamically via trust decay (packet drops)
                     double trust = ledger.GetTrust(i, j);
-                    double snr = ledger.GetSnr(i, j);
+                    
+                    // Calculate SNR based on distance (Physics)
+                    // Since we disabled Oracle SNR updates in PhyRxEndCallback, we calculate it here directly
+                    // This ensures the routing metric still accounts for link quality
+                    double estimatedSnrDb = defaultSnr - (distance / 10.0);
+                    if (estimatedSnrDb < 5.0) estimatedSnrDb = 5.0;
+                    double snrDb = estimatedSnrDb;
                     
                     // If Ledger has NO data (new link), use Default Trust (1.0) and Default SNR
                     // Initially, all nodes have trust = 1.0, including blackholes
                     // Trust will decay as blackholes drop packets, and system will detect them
-                    if (snr <= 0.0) {
-                        snr = defaultSnr;
+                    if (snrDb <= 0.0) {
+                        snrDb = defaultSnr;
                     }
                     // Safety check: Ensure trust is never zero or negative (would cause division by zero)
-                    // Minimum trust is 0.3 (safety floor from UpdateMetric)
+                    // Minimum trust is ledger.GetTrustFloor() (safety floor from UpdateMetric)
+                    double trustFloor = ledger.GetTrustFloor();
                     if (trust <= 0.0) {
                         trust = 1.0;  // Default for new links
                     }
                     // Enforce minimum trust floor to prevent infinite costs
-                    if (trust < 0.3) {
-                        trust = 0.3;  // Safety floor - link is expensive but not dead
+                    if (trust < trustFloor) {
+                        trust = trustFloor;  // Safety floor - link is expensive but not dead
+                    }
+                    
+                    // TASK 1: Proper SNR Normalization (Mathematically Correct Minimization)
+                    // Normalize SNR: Convert SNR (dB) to normalized quality score [0.01, 1.0]
+                    // This ensures SNR and Trust are in comparable scalar ranges
+                    // MinSNR = 5.0 dB, MaxSNR = 40.0 dB (reasonable range for 60GHz)
+                    const double MinSNR = 5.0;
+                    const double MaxSNR = 40.0;
+                    double snrNorm = std::max(0.01, std::min(1.0, (snrDb - MinSNR) / (MaxSNR - MinSNR)));  // Clamp to [0.01, 1.0]
+                    
+                    // Invert Metrics: Penalize low SNR and low Trust
+                    // Quadratic penalty for bad signal: snrCost = 1.0 / (snrNorm^2)
+                    // Quadratic penalty for bad trust: trustCost = 1.0 / (trust^2)
+                    // High SNR/Trust -> Low Cost (correct minimization)
+                    // Both metrics are now in comparable ranges [0.01, 1.0]
+                    double snrCost = 1.0 / (snrNorm * snrNorm);
+                    double trustCost = 1.0 / (trust * trust);
+                    
+                    // TASK 4: Add "Low Trust" Logging
+                    // Log warning if trust is below threshold (once per BuildGraph call)
+                    if (trust < 0.5 && !g_lowTrustLogged) {
+                        NS_LOG_WARN("Low trust detected: Link " << i << "->" << j << " has trust=" << trust);
+                        g_lowTrustLogged = true;  // Log once per BuildGraph call
                     }
                     
                     // Calculate weight based on routing mode
                     double cost;
                     if (m_useBlockchain) {
-                        // Proposed: Blockchain-assisted routing with Trust (BALANCED)
-                        // Cost = (1.0 / SNR) + (500.0 / Trust)
-                        // For nodes with low trust (0.3 after multiple drops), cost = (1.0/snr) + (500.0/0.3) = 0.05 + 1,667 = ~1,667 (high but not infinite)
-                        // For normal nodes, trust = 1.0, so cost = (1.0/snr) + (500.0/1.0) = 0.05 + 500 = ~500
-                        // For nodes with trust = 0.5 (after 1 drop), cost = (1.0/snr) + (500.0/0.5) = 0.05 + 1,000 = ~1,000
-                        // This BALANCED approach discourages routing through bad nodes while maintaining connectivity
-                        // Physics (SNR) still plays a role, preventing total network collapse
-                        cost = (m_alpha / snr) + (m_beta / trust);
+                        // TASK 1: Proposed: Blockchain-assisted routing with Trust (Mathematically Correct)
+                        // Cost = (alpha * snrCost) + (beta * trustCost)
+                        // Where snrCost = 1/(snrNorm^2) and trustCost = 1/(trust^2)
+                        // Quadratic inversion naturally handles weighting (low trust spikes cost to infinity)
+                        // Balanced: Beta=500 ensures Bad Trust cost (12,500) is comparable to Bad SNR cost (10,000)
+                        // For nodes with low trust (0.2 after multiple drops), trustCost = 1/(0.2^2) = 25.0, Beta*trustCost = 500*25 = 12,500
+                        // For normal nodes, trust = 1.0, so trustCost = 1/(1.0^2) = 1.0, Beta*trustCost = 500*1 = 500
+                        // For bad SNR (0.01), snrCost = 1/(0.01^2) = 10,000, Alpha*snrCost = 1*10,000 = 10,000
+                        // This balanced approach ensures Trust penalty is comparable to SNR penalty
+                        double snrPart = m_alpha * snrCost;
+                        double trustPart = m_beta * trustCost;
+                        cost = snrPart + trustPart;
+                        
+                        // TASK 1: Debug log (only once per BuildGraph call for one link)
+                        if (!g_costDebugLogged) {
+                            NS_LOG_WARN("Cost Components: SNR_Part=" << std::fixed << std::setprecision(2) << snrPart 
+                                      << ", Trust_Part=" << std::fixed << std::setprecision(2) << trustPart
+                                      << " (Beta=" << m_beta << ", snrNorm=" << std::fixed << std::setprecision(3) << snrNorm
+                                      << ", trust=" << std::fixed << std::setprecision(3) << trust << ")");
+                            g_costDebugLogged = true;
+                        }
                     } else {
                         // Baseline: Standard routing (hop count, ignores Trust)
                         // Cost = 1 (mimics AODV/OLSR behavior, creates vulnerability)
@@ -288,6 +379,12 @@ public:
     
     /**
      * Calculate path using Dijkstra's algorithm
+     * 
+     * TASK 3: Path Cost Aggregation Logic
+     * Path Cost Aggregation: SUM(LinkCosts). We minimize the additive sum of inverse-quality metrics.
+     * Each link in the path contributes its cost (computed from SNR and Trust) to the total path cost.
+     * Dijkstra's algorithm finds the path with minimum total cost (sum of all link costs).
+     * This ensures that paths with high-quality links (good SNR and high trust) are preferred.
      */
     std::vector<uint32_t> CalculatePath(uint32_t source, uint32_t dest) {
         std::vector<uint32_t> path;
@@ -333,6 +430,10 @@ public:
             unvisited.erase(u);
             
             // Update distances to neighbors
+            // TASK 3: Path Cost Aggregation: SUM(LinkCosts)
+            // We minimize the additive sum of inverse-quality metrics.
+            // Each link contributes its cost to the total path cost.
+            // dist[v] = min(dist[v], dist[u] + weight) implements SUM(LinkCosts) minimization
             if (m_graph.find(u) != m_graph.end()) {
                 for (uint32_t v : m_graph[u]) {
                     if (unvisited.find(v) != unvisited.end()) {
@@ -340,6 +441,7 @@ public:
                         double weight = (m_weights.find(key) != m_weights.end()) ? 
                                        m_weights[key] : std::numeric_limits<double>::infinity();
                         
+                        // Path Cost Aggregation: Add link cost to path cost
                         double alt = dist[u] + weight;
                         if (alt < dist[v]) {
                             dist[v] = alt;
@@ -418,6 +520,52 @@ uint32_t ParseNodeIdFromContext(const std::string& context) {
 }
 
 /**
+ * Application Layer Rx Callback: Mark packet as delivered
+ */
+void AppRxCallback(std::string context, Ptr<const Packet> packet) {
+    // Optimization: Only track delivery if we are watching this packet
+    if (g_pendingPackets.find(packet->GetUid()) != g_pendingPackets.end()) {
+        g_deliveredPackets.insert(packet->GetUid());
+    }
+}
+
+/**
+ * Application Layer Tx Callback: Sample and track packets
+ */
+void AppTxCallback(std::string context, Ptr<const Packet> packet) {
+    static Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
+    
+    // Sampling 15%
+    if (rng->GetValue(0.0, 1.0) > 0.15) {
+        return;
+    }
+    
+    // Get Source Node ID from context
+    // Context: "/NodeList/X/ApplicationList/Y/$ns3::UdpClient/Tx"
+    uint32_t sourceId = ParseNodeIdFromContext(context);
+    if (sourceId == UINT32_MAX) return;
+    
+    // Find Destination from our flow map
+    auto it = g_sourceToDest.find(sourceId);
+    if (it == g_sourceToDest.end()) return;
+    uint32_t destId = it->second;
+    
+    // Get the current path to determine the first hop (nextHop)
+    // This ensures symmetric trust updates: same hop is credited on success and penalized on timeout
+    std::vector<uint32_t> path = g_context.routingEngine.CalculatePath(sourceId, destId);
+    uint32_t nextHopId = (path.size() > 1) ? path[1] : destId;  // First hop, or dest if direct
+    
+    TrackedPacket tracked;
+    tracked.packetUid = packet->GetUid();
+    tracked.sendTime = Simulator::Now();
+    tracked.sourceNodeId = sourceId;
+    tracked.destNodeId = destId;
+    tracked.nextHopId = nextHopId;  // Store first hop for symmetric trust updates
+    
+    g_pendingPackets[packet->GetUid()] = tracked;
+}
+
+/**
  * PhyRxEnd Callback: Called when a packet is successfully received
  * Note: PhyRxEnd doesn't provide SNR directly, so we'll estimate it based on distance
  */
@@ -453,7 +601,8 @@ void PhyRxEndCallback(std::string context, Ptr<const Packet> packet) {
             estimatedSnr = g_context.defaultSnr - (distance / 10.0);
             if (estimatedSnr < 5.0) estimatedSnr = 5.0;
         }
-        g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, estimatedSnr, false, g_context.useBlockchain);
+        // DISABLED: Oracle detection removed. Trust/SNR updates moved to Application Layer / Heartbeat
+        // g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, estimatedSnr, false, g_context.useBlockchain);
     } else {
         // Update all potential links within range (simplified approach)
         // In production, we'd parse the IP header to get exact source
@@ -474,7 +623,8 @@ void PhyRxEndCallback(std::string context, Ptr<const Packet> packet) {
                         // In production, we'd extract actual SNR from the packet or use another trace source
                         double estimatedSnr = g_context.defaultSnr - (distance / 10.0); // Simple linear model
                         if (estimatedSnr < 5.0) estimatedSnr = 5.0; // Minimum SNR
-                        g_context.ledger.UpdateMetric(i, receivingNodeId, estimatedSnr, false, g_context.useBlockchain);
+                        // DISABLED: Oracle detection removed
+                        // g_context.ledger.UpdateMetric(i, receivingNodeId, estimatedSnr, false, g_context.useBlockchain);
                     }
                 }
             }
@@ -519,11 +669,11 @@ void Ipv4L3DropCallback(std::string context, const Ipv4Header& header, Ptr<const
             break;
     }
     
-    // CRITICAL: Count MaliciousDrops for blackhole nodes
-    // If this node is a blackhole (in g_context.blackholeNodes), this is a malicious drop
+    // CRITICAL: Count ReliabilityDrops for blackhole nodes
+    // If this node is a blackhole (in g_context.blackholeNodes), this is a reliability drop
     bool isExplicitBlackhole = (g_context.blackholeNodes.find(receivingNodeId) != g_context.blackholeNodes.end());
     if (isExplicitBlackhole) {
-        g_maliciousDrops++;
+        g_reliabilityDrops++;
         g_blackholeL3Drops++;
     }
     
@@ -567,7 +717,8 @@ void Ipv4L3DropCallback(std::string context, const Ipv4Header& header, Ptr<const
         
         // If found source, update that specific link
         if (sourceNodeId != UINT32_MAX) {
-            g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, 0.0, true, g_context.useBlockchain);
+            // DISABLED: Oracle detection removed
+            // g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, 0.0, true, g_context.useBlockchain);
         } else {
             // Update all potential links involving this node (dynamic detection)
             for (uint32_t i = 0; i < g_context.nodes.GetN(); i++) {
@@ -583,7 +734,8 @@ void Ipv4L3DropCallback(std::string context, const Ipv4Header& header, Ptr<const
                         double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
                         
                         if (distance < g_context.maxRadioRange) {
-                            g_context.ledger.UpdateMetric(i, receivingNodeId, 0.0, true, g_context.useBlockchain);
+                            // DISABLED: Oracle detection removed
+                            // g_context.ledger.UpdateMetric(i, receivingNodeId, 0.0, true, g_context.useBlockchain);
                         }
                     }
                 }
@@ -650,7 +802,8 @@ void PhyRxDropCallback(std::string context, Ptr<const Packet> packet, WifiPhyRxf
     
     // If found specific flow, update that link
     if (sourceNodeId != UINT32_MAX) {
-        g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, 0.0, true, g_context.useBlockchain);
+        // DISABLED: Oracle detection removed
+        // g_context.ledger.UpdateMetric(sourceNodeId, receivingNodeId, 0.0, true, g_context.useBlockchain);
     } else {
         // Update all potential links within range (simplified approach)
         for (uint32_t i = 0; i < g_context.nodes.GetN(); i++) {
@@ -666,7 +819,8 @@ void PhyRxDropCallback(std::string context, Ptr<const Packet> packet, WifiPhyRxf
                     double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
                     
                     if (distance < g_context.maxRadioRange) {
-                        g_context.ledger.UpdateMetric(i, receivingNodeId, 0.0, true, g_context.useBlockchain);
+                        // DISABLED: Oracle detection removed
+                        // g_context.ledger.UpdateMetric(i, receivingNodeId, 0.0, true, g_context.useBlockchain);
                     }
                 }
             }
@@ -680,7 +834,56 @@ void PhyRxDropCallback(std::string context, Ptr<const Packet> packet, WifiPhyRxf
 
 void SimulationHeartbeat() {
     double currentTime = Simulator::Now().GetSeconds();
-    NS_LOG_INFO("Heartbeat at " << currentTime << "s");
+    // MINIMIZED: Heartbeat logging disabled for production (called every 100ms)
+    // NS_LOG_INFO("Heartbeat at " << currentTime << "s");
+    
+    // 0. Application Layer Timeout Detection (New Mechanism)
+    // Check for pending packets that have timed out (> 200ms)
+    Time timeout = MilliSeconds(200);
+    uint32_t detectedDrops = 0;
+    
+    for (auto it = g_pendingPackets.begin(); it != g_pendingPackets.end(); ) {
+        // Check if delivered
+        if (g_deliveredPackets.find(it->first) != g_deliveredPackets.end()) {
+            // Success! Update trust (recovery mechanism)
+            // FIX: Symmetric trust updates - update only the first hop (same as timeout logic)
+            // This ensures intermediate hops receive credit for successful delivery
+            // and prevents biased metrics from updating non-existent direct links
+            uint32_t src = it->second.sourceNodeId;
+            uint32_t nextHop = it->second.nextHopId;
+            // Update metric with isDrop=false to trigger trust recovery
+            // SNR=0.0 means we don't update SNR, only trust
+            g_context.ledger.UpdateMetric(src, nextHop, 0.0, false, g_context.useBlockchain);
+            
+            // Remove from tracking
+            g_deliveredPackets.erase(it->first); // Optimization: Clean up delivered set
+            it = g_pendingPackets.erase(it);
+        } 
+        // Check for timeout
+        else if (Simulator::Now() - it->second.sendTime > timeout) {
+            // Timeout detected! Packet lost.
+            detectedDrops++;
+            
+            uint32_t src = it->second.sourceNodeId;
+            uint32_t nextHop = it->second.nextHopId;  // Use stored first hop (symmetric with success case)
+            
+            // Penalize the first hop (same hop that would be credited on success)
+            // This ensures symmetric trust updates: same hop is penalized on timeout and credited on success
+            // Update Trust (isDrop = true)
+            // SNR is 0.0 because we don't know it from a timeout
+            g_context.ledger.UpdateMetric(src, nextHop, 0.0, true, g_context.useBlockchain);
+            
+            // Remove from tracking to avoid double counting
+            it = g_pendingPackets.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+    // MINIMIZED: AppLayer detection logging disabled for production
+    // if (detectedDrops > 0) {
+    //     NS_LOG_INFO("AppLayer Detection: " << detectedDrops << " packets timed out. Penalties applied.");
+    // }
     
     // 1. Topology Discovery: Build graph from current physical positions
     // Pass blackholeNodes to BuildGraph so Proposed mode can exclude them
@@ -702,9 +905,9 @@ void SimulationHeartbeat() {
                 pathStr << path[i];
                 if (i < path.size() - 1) pathStr << "->";
             }
-            // OPTIMIZED: Reduced logging frequency - paths are recalculated every 100ms
-            NS_LOG_INFO("Path from " << source << " to " << dest << " (" << 
-                       path.size() << " hops): " << pathStr.str());
+            // MINIMIZED: Path logging disabled for production (paths recalculated every 100ms)
+            // NS_LOG_INFO("Path from " << source << " to " << dest << " (" << 
+            //            path.size() << " hops): " << pathStr.str());
             
             // Get IP addresses
             Ipv4Address destIp = g_context.ipv4Interfaces.GetAddress(dest);
@@ -716,7 +919,7 @@ void SimulationHeartbeat() {
                 uint32_t nextNode = path[i + 1];
                 
                 // CRITICAL: Blackhole nodes should NOT have forwarding routes
-                // This ensures they drop packets (NO_ROUTE), which will be counted as MaliciousDrops
+                // This ensures they drop packets (NO_ROUTE), which will be counted as ReliabilityDrops
                 // Source node can still have route TO blackhole (to send packets), but blackhole won't forward
                 if (g_context.blackholeNodes.find(currentNode) != g_context.blackholeNodes.end()) {
                     // Skip route installation for blackhole nodes - they will drop packets
@@ -757,8 +960,9 @@ void SimulationHeartbeat() {
                     // Install route: to reach destIp, send to nextHopIp via interface
                     // For direct path (source->dest), nextHopIp == destIp
                     staticRouting->AddHostRouteTo(destIp, nextHopIp, interface);
-                    NS_LOG_INFO("Route installed on node " << currentNode << ": destination " 
-                                << destIp << " -> next hop " << nextHopIp << " (Node " << nextNode << ") via interface " << interface);
+                    // MINIMIZED: Route installation logging disabled for production
+                    // NS_LOG_INFO("Route installed on node " << currentNode << ": destination " 
+                    //             << destIp << " -> next hop " << nextHopIp << " (Node " << nextNode << ") via interface " << interface);
                 } else {
                     NS_LOG_WARN("StaticRouting not found on node " << currentNode);
                 }
@@ -786,6 +990,9 @@ int main(int argc, char* argv[])
     uint32_t rngSeed = 1;
     uint32_t rngRun = 1;
     bool useBlockchain = true;
+    double beta = 500.0;  // Default beta for balanced cost function (calibrated to match SNR penalty scale)
+    double trustFloor = 0.2;  // Default trust floor for ablation study
+    double sideLength = 300.0;  // Area side length in meters (for sparse/dense network testing)
     
     CommandLine cmd(__FILE__);
     cmd.AddValue("numNodes", "Number of nodes", numNodes);
@@ -797,6 +1004,9 @@ int main(int argc, char* argv[])
     cmd.AddValue("RngSeed", "RNG Seed", rngSeed);
     cmd.AddValue("RngRun", "RNG Stream", rngRun);
     cmd.AddValue("useBlockchain", "Enable/Disable Trust logic (true=Proposed, false=Baseline)", useBlockchain);
+    cmd.AddValue("beta", "Beta coefficient for trust cost (sensitivity analysis)", beta);
+    cmd.AddValue("trustFloor", "Trust floor value (ablation study)", trustFloor);
+    cmd.AddValue("sideLength", "Area side length in meters (for sparse/dense network testing)", sideLength);
     cmd.Parse(argc, argv);
     
     // Set RNG
@@ -807,9 +1017,11 @@ int main(int argc, char* argv[])
     g_context.defaultSnr = defaultSnr;
     g_context.useBlockchain = useBlockchain;
     g_context.routingEngine.SetUseBlockchain(useBlockchain);
+    g_context.routingEngine.SetBeta(beta);
+    g_context.ledger.SetTrustFloor(trustFloor);
     
-    // Reset malicious drops counter for this simulation run
-    g_maliciousDrops = 0;
+    // Reset reliability drops counter for this simulation run
+    g_reliabilityDrops = 0;
     
     // Reset all drop counters for detailed analysis
     g_phyDrops = 0;
@@ -819,13 +1031,15 @@ int main(int argc, char* argv[])
     g_trustPenalties = 0;
     
     // Enable logging for route information and applications
-    LogComponentEnable("SixGWigigSim", LOG_LEVEL_INFO);
-    LogComponentEnable("Ipv4StaticRouting", LOG_LEVEL_INFO);
-    LogComponentEnable("UdpClient", LOG_LEVEL_INFO);
-    LogComponentEnable("UdpServer", LOG_LEVEL_INFO);
-    LogComponentEnable("FlowMonitor", LOG_LEVEL_INFO);
-    LogComponentEnable("ArpL3Protocol", LOG_LEVEL_INFO);
-    LogComponentEnable("Ipv4L3Protocol", LOG_LEVEL_INFO);
+    // MINIMIZED for production campaign: Only WARN and ERROR levels
+    // This prevents log files from consuming gigabytes during 50-seed campaigns
+    LogComponentEnable("SixGWigigSim", LOG_LEVEL_WARN);
+    LogComponentEnable("Ipv4StaticRouting", LOG_LEVEL_WARN);
+    LogComponentEnable("UdpClient", LOG_LEVEL_WARN);
+    LogComponentEnable("UdpServer", LOG_LEVEL_WARN);
+    LogComponentEnable("FlowMonitor", LOG_LEVEL_WARN);
+    LogComponentEnable("ArpL3Protocol", LOG_LEVEL_WARN);
+    LogComponentEnable("Ipv4L3Protocol", LOG_LEVEL_WARN);
     
     NS_LOG_UNCOND("6G MANET WiGig Simulation");
     NS_LOG_UNCOND("Routing Mode: " << (useBlockchain ? "Proposed (Blockchain-assisted)" : "Baseline (Hop Count)"));
@@ -889,10 +1103,10 @@ int main(int argc, char* argv[])
     MobilityHelper mobility;
     
     // Use RandomRectanglePositionAllocator for dynamic topology
-    // Area: 300m x 300m (Dense Network scenario - increased node density)
+    // Area: sideLength x sideLength (configurable for sparse/dense network testing)
     // Increased node density (30 nodes) to avoid network partitioning
     // OPTIMIZATION: Use RngRun to seed position allocator for more variation between runs
-    double sideLength = 300.0;  // Dense Network: 300m x 300m (was 400m for Sparse Network)
+    // sideLength is now a command-line parameter (default 300.0 for Dense Network)
     Ptr<RandomRectanglePositionAllocator> positionAlloc = CreateObject<RandomRectanglePositionAllocator>();
     Ptr<UniformRandomVariable> xPos = CreateObject<UniformRandomVariable>();
     xPos->SetAttribute("Min", DoubleValue(0.0));
@@ -994,6 +1208,7 @@ int main(int argc, char* argv[])
         availableNodes.erase(destIt);
         
         g_context.activeFlows.push_back(std::make_pair(source, dest));
+        g_sourceToDest[source] = dest; // Map Source -> Dest for Application Layer Tracking
         NS_LOG_UNCOND("Flow " << i << ": Node " << source << " -> Node " << dest);
     }
     
@@ -1109,6 +1324,17 @@ int main(int argc, char* argv[])
     NS_LOG_UNCOND("  - PhyRxDrop: PHY layer packet drops");
     NS_LOG_UNCOND("  - Ipv4L3Drop: L3 layer packet drops (critical for blackhole detection)");
     
+    // Connect Application Layer Traces for Realistic Detection (Timeout-based)
+    Config::Connect(
+        "/NodeList/*/ApplicationList/*/$ns3::UdpClient/Tx",
+        MakeCallback(&AppTxCallback)
+    );
+    Config::Connect(
+        "/NodeList/*/ApplicationList/*/$ns3::UdpServer/Rx",
+        MakeCallback(&AppRxCallback)
+    );
+    NS_LOG_UNCOND("  - AppTx/Rx: Connected for End-to-End ACK simulation (15% sampling, 200ms timeout)");
+    
     // ========================================================================
     // 10. Schedule Initial Heartbeat
     // ========================================================================
@@ -1184,7 +1410,7 @@ int main(int argc, char* argv[])
     NS_LOG_UNCOND("  PDR: " << std::fixed << std::setprecision(2) << pdrPercent << "%");
     NS_LOG_UNCOND("  Avg Latency: " << avgLatencyMs << " ms");
     NS_LOG_UNCOND("  Avg Hop Count: " << std::fixed << std::setprecision(2) << avgHopCount);
-    NS_LOG_UNCOND("  Malicious Drops: " << g_maliciousDrops);
+    NS_LOG_UNCOND("  Reliability Drops: " << g_reliabilityDrops);
     
     // Detailed drop analysis
     NS_LOG_UNCOND("Detailed Drop Statistics:");
@@ -1202,13 +1428,25 @@ int main(int argc, char* argv[])
               << " | BlackholeL3Drops=" << g_blackholeL3Drops
               << " | RouteSkips=" << g_routeSkips
               << " | TrustPenalties=" << g_trustPenalties
-              << " | MaliciousDrops=" << g_maliciousDrops << std::endl;
+              << " | ReliabilityDrops=" << g_reliabilityDrops << std::endl;
+    
+    // TASK 3: Output Sensitivity Data (alpha and beta values for sensitivity analysis)
+    // Get alpha and beta from routing engine
+    double alpha = 1.0;
+    double betaValue = 1.0;
+    if (useBlockchain) {
+        alpha = g_context.routingEngine.GetAlpha();
+        betaValue = g_context.routingEngine.GetBeta();
+    }
+    std::cout << "[SENSITIVITY] Alpha=" << std::fixed << std::setprecision(3) << alpha 
+              << " | Beta=" << std::fixed << std::setprecision(3) << betaValue 
+              << " | TrustFloor=" << std::fixed << std::setprecision(3) << trustFloor << std::endl;
     
     // Task 2: Output machine-readable CSV line
-    // Format: RESULT_DATA, <RngRun>, <UseBlockchain(0/1)>, <PDR_Percent>, <AvgLatency_ms>, <AvgHops>, <MaliciousDrops>
+    // Format: RESULT_DATA, <RngRun>, <UseBlockchain(0/1)>, <PDR_Percent>, <AvgLatency_ms>, <AvgHops>, <ReliabilityDrops>
     std::cout << "RESULT_DATA, " << rngRun << ", " << (useBlockchain ? 1 : 0) << ", " 
               << std::fixed << std::setprecision(2) << pdrPercent << ", " << avgLatencyMs << ", "
-              << avgHopCount << ", " << g_routeSkips << std::endl; // Use g_routeSkips as the value for MaliciousDrops
+              << avgHopCount << ", " << g_routeSkips << std::endl; // Use g_routeSkips as the value for ReliabilityDrops
     
     Simulator::Destroy();
     

@@ -1,9 +1,98 @@
-.cursor/plans/install-ns-3-with-python-aba6db00.plan.md
-ns3/INSTALLATION_MINI.txt
-ns3/README.md
-ns3/ns-3-dev
-!ns3/ns-3-dev/scratch/sixg-wigig-sim.cc
+# Whitelist approach: Ignore everything by default, then allow only important files
+
+# Ignore everything
+/*
+
+# Allow root README
+!README.md
+
+# Allow main documentation
+!thesis_technical_sections.md
+
+# Allow NS-3 simulation code
+!ns3/
+ns3/*
+!ns3/README.md
+!ns3/ns-3-dev/
+ns3/ns-3-dev/*
+!ns3/ns-3-dev/scratch/
+ns3/ns-3-dev/scratch/*
 !ns3/ns-3-dev/scratch/.gitignore
+!ns3/ns-3-dev/scratch/sixg-wigig-sim.cc
+!ns3/ns-3-dev/scratch/CMakeLists.txt
+
+# Ignore NS-3 build artifacts
+ns3/ns-3-dev/build/
+ns3/ns-3-dev/cmake-cache/
+ns3/ns-3-dev/.waf-*/
+ns3/ns-3-dev/.lock-*
+ns3/ns-3-dev/*.pyc
+ns3/ns-3-dev/*.pyo
+
+# Ignore NS-3 results and logs
+ns3/*.csv
+ns3/*.log
+ns3/*.png
+ns3/*.txt
+
+# Ignore LaTeX directory completely
 diploma-latex/
-thesis_technical_sections.md
+
+# Allow analysis scripts
+!sensitivity_analysis.py
+
+# Allow blockchain-routing-c++ scripts and docs (but not results)
+!blockchain-rounting-c++/
+blockchain-rounting-c++/*
+!blockchain-rounting-c++/*.py
+!blockchain-rounting-c++/*.md
+
+# Ignore blockchain-routing-c++ results and logs
+blockchain-rounting-c++/*.csv
+blockchain-rounting-c++/*.log
+blockchain-rounting-c++/campaign_logs_*/
+
+# Allow blockchain-routing-sim scripts and source
+!blockchain-routing-sim/
+blockchain-routing-sim/*
+!blockchain-routing-sim/*.py
+!blockchain-routing-sim/*.md
+!blockchain-routing-sim/*.txt
+!blockchain-routing-sim/src/
+!blockchain-routing-sim/tests/
+
+# Ignore blockchain-routing-sim results
+blockchain-routing-sim/results/
+blockchain-routing-sim/*.csv
+blockchain-routing-sim/*.log
+blockchain-routing-sim/*.png
+
+# Ignore all temporary files
+*.log
+*.csv
+*.png
+*.txt
+!README.md
+!thesis_technical_sections.md
+!ns3/README.md
+!blockchain-rounting-c++/*.md
+!blockchain-routing-sim/requirements.txt
+
+# Ignore test directories
+test_comparison/
+test_*/
+
+# Ignore docs if empty
+docs/
+
+# Ignore misc files
 gg.txt
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Allow .gitignore itself
+!.gitignore

@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Tuple
 import sys
 import os
 
-# Добавляем путь к модулям проекта
+# Add project modules to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from src.core.ledger import BlockchainLedger
