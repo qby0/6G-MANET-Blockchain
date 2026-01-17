@@ -40,6 +40,7 @@ diploma-latex/
 
 # Allow analysis scripts
 !sensitivity_analysis.py
+!generate_figures.py
 
 # Allow blockchain-routing-c++ scripts and docs (but not results)
 !blockchain-rounting-c++/
